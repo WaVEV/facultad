@@ -29,12 +29,12 @@ evalInt e st = case e of
                 (Var x) -> get st x
                 (Const n) -> n
                 (Neg intExpr) -> - evalInt intExpr st
-                (Bexpr exp1 op exp2) -> f (evalInt exp1 st) evalInt(exp2 st)
+                (Bexpr exp1 op exp2) -> f (evalInt exp1 st) (evalInt exp2 st)
                     where f = case op of
                                     Plus -> (\x y -> x + y)
                                     Minus -> (\x y -> x - y)
                                     Times -> (\x y -> x * y)
-                                    Div -> (\x y -> x / y)
+                                    Div -> (\x y -> x `div` y)
                                     Mod -> (\x y -> x `mod` y)
 
 
@@ -43,14 +43,21 @@ evalBool :: Assert -> State -> Bool
 evalBool e st = case e of
                         CTrue -> True
                         CFalse -> False
-                        (Not a) -> not evalBool a st
+                        (Not a) -> not (evalBool a st)
                         (ABin a1 op a2) -> f (evalBool a1 st) (evalBool a2 st)
                             where f = case op of
-                                And -> \x y -> x && y
-                                Or -> \x y -> x || y
-                                Impl -> \x y -> (not x) || y
-                                Iff -> \x y -> x == y
-
+                                        And -> \ x y -> x && y
+                                        Or -> \ x y -> x || y
+                                        Impl -> \ x y -> (not x) || y
+                                        Iff -> \x y -> x == y
+                        (Relacion e0 op e1) -> f (evalInt e0 st) (evalInt e1 st)
+                            where f = case op of
+                                        Eq -> \ x y -> x == y
+                                        NEq -> \ x y -> x/=y
+                                        Less -> \ x y -> x < y
+                                        Greater -> \ x y -> x > y
+                                        GtEq -> \ x y -> x >= y
+                                        LtEq -> \ x y -> x <= y
 
 -- | La evaluación de un comando es un elemento de Ω; el único
 -- elemento que no tiene una representación explícita es ⊥. ¿Por qué?
@@ -64,13 +71,13 @@ eval c st = case c of
                 Skip -> Term st
                 (Assign var e) -> Term (set st var value) 
                     where value = evalInt e st
-                (If b c0 c1) | evalBool b -> eval c0 st
+                (If b c0 c1) | evalBool b st -> eval c0 st
                              | otherwise -> eval c1 st
                 (Seq c0 c1) -> star (eval c1) (eval c0 st)
                 (NewVar var e c) -> (dagger (\o -> set o var (get st var))) (eval c st')
                     where st' = set st var (evalInt e st)
                 Fail -> Abort st
-                (Catchin c0 c1) -> plus (eval . c1) (eval c0 st)
+                (Catchin c0 c1) -> pluss (eval c1) (eval c0 st)
                 (Output e) -> Out n (Term st)
                     where n = evalInt e st
                 (Input var) -> In var (\n -> Term (set st var n) )
@@ -95,8 +102,11 @@ star f (In v g) = In v (star f . g) -- esto es equivalente a \n -> star f (g n)
 -- | La función dagger (†) extiende funciones de Σ → Ω a funciones de
 -- Ω → Ω, pero aplicando la función en caso de estar ante una terminación 
 -- anormal.
-dagger :: (State -> Omega) -> Omega -> Omega
-dagger f w = ver del teorico
+dagger :: (State -> State) -> Omega -> Omega
+dagger f (Term st) = Term (f st)
+dagger f (Abort st) = Abort (f st)
+dagger f (Out n w) = Out n (dagger f w)
+dagger f (In v g) = In v (dagger f . g) -- esto es equivalente a \n -> dagger f (g n)
 
 -- | En Haskell podemos definir una función que resembla el operador Y del
 -- menor punto fijo.

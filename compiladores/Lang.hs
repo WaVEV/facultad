@@ -28,7 +28,7 @@ data Assert = CTrue
 
 
 -- | Operadores de relación (COMPLETAR)
-data OpRel = Eq | NEq |Less | Greater |GtEq | Equal | LtEq
+data OpRel = Eq | NEq |Less | Greater | GtEq | LtEq
            deriving Show
 
 -- | Operadores binarios booleanos (COMPLETAR)

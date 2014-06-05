@@ -1,4 +1,5 @@
 module Main where
+import System.IO
 
 import Control.Monad
 import System.Environment
@@ -18,7 +19,7 @@ run :: Omega -> IO ()
 run (Term st) = return ()
 run (Abort st) =  putStrLn ("El programa terminó con una falla."++(show st))
 run (Out n w) = putStrLn (show n) >> run w
-run (In v g) = putStr (v ++ " : ") >> getLine >>= run . g . read
+run (In v g) = putStr (v ++ ": ") >> hFlush stdout >> getLine >>= run . g . read
 
 -- | El programa que pega todo: lee un archivo (y falla sin remedio si
 -- no existe), les pasamos el contenido al lexer y, en caso de éxito,

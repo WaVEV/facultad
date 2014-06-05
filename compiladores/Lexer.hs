@@ -18,8 +18,8 @@ data Symbol = OpenParen  -- ^ (
             | CloseParen -- ^ )
             | OpenCurly  -- ^ {
             | CloseCurly -- ^ }
-			| Admiration
-			| Interrogation
+            | Exclamation
+            | Question
               deriving (Eq,Show)
 
 -- | Operadores
@@ -46,7 +46,8 @@ data Operator = TokLess
 data Keyword = KIf | Then | Else | Fi 
              | KNewVar | In 
              | KSkip | KWhile | Do | Od 
-			 | KTrue | KFalse |KFail| Catchin
+             | KTrue | KFalse
+             | KCatchin | KFail 
                 deriving (Eq,Show)
 
 -- | Lista de palabras reservadas y su representación
@@ -63,8 +64,8 @@ keywords = [ (KIf, "if")
            , (Od, "od")
            , (KTrue, "true")
            , (KFalse, "false")
-           , (KFail , "fail")
-           , (Catchin, "catchin")
+           , (KCatchin, "catchin")
+           , (KFail, "fail")
            ]
 
 -- | Una string es una palabra reservada
@@ -95,7 +96,7 @@ operators = [ (TokSemicolon, ";")
 
 -- | Símbolos que no son usados para operadores. 
 symbols :: [(Symbol,Char)]
-symbols = [(OpenParen,'('), (CloseParen,')'), (OpenCurly,'{'), (CloseCurly,'}'), (Admiration , '!'), (Interrogation, '?')]
+symbols = [(OpenParen,'('), (CloseParen,')'), (OpenCurly,'{'), (CloseCurly,'}'), (Exclamation, '!'), (Question, '?')]
 
 -- | Nuestro lexer es un parser que consume strings y devuelve
 -- o bien un error o bien una lista de tokens

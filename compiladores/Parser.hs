@@ -23,7 +23,7 @@ pcomando = pComm >>= \v -> empty >> return v
 empty :: TParser ()
 empty = do s <- getInput
            if null s then return ()
-           else fail "FAIL EN EMPTY"
+           else fail "ola k ase"
 
 -- | Un parser muy sencillo para skip
 pskip :: TParser Comm
@@ -67,36 +67,30 @@ pNewVar = do _ <- silentKw KNewVar
              _ <- silentSym CloseCurly
              return $ NewVar v e c
 
-pOutput :: TParser Comm
-pOutput = do _ <- silentSym Admiration
-             v <- pIntExp
-             return $ Output v
+pCatch :: TParser Comm
+pCatch = do _ <- silentKw KCatchin
+            c1 <- pComm
+            _ <- silentKw In
+            _ <- silentSym OpenCurly 
+            c2 <- pComm
+            _ <- silentSym CloseCurly
+            return $ Catchin c1 c2
 
-pFail :: TParser Comm
 pFail = do _ <- silentKw KFail
            return $ Fail
 
+pOutput = do _ <- silentSym Exclamation
+             e <- pIntExp
+             return $ Output e
 
-pInput:: TParser Comm
-pInput = do _ <- silentSym Interrogation
+pInput = do _ <- silentSym Question
             v <- pvar
             return $ Input v
 
 
-pCatch::TParser Comm
-pCatch = do _ <- silentKw Catchin
-            v <- pComm
-            _ <- silentKw In
-            _ <- silentSym OpenCurly 
-            c <- pComm
-            _ <- silentSym CloseCurly
-            return $ Catch v c
-
-
-
 -- | Parser para comandos que no tienen secuencias. (COMPLETAR)
 pComm' :: TParser Comm
-pComm' = choice [pAssign,pif,pskip,pNewVar,pwhile,pFail,pOutput,pInput,pCatch]
+pComm' = choice [pAssign,pif,pskip,pNewVar,pwhile, pCatch, pFail,pOutput,pInput]
 
 
 -- | Parser de secuencias
@@ -116,68 +110,61 @@ pvar = ptk str
     where str (Str v) = Just v
           str _ = Nothing
 
-
-
-
 pIntExp:: TParser IntExpr
-pIntExp = ie_plus 
+pIntExp = try pIntExpRSumSub <|> try pIntExpRTMD <|> try pBasicIntExp
+
+
+pIntExpRSumSub:: TParser IntExpr
+pIntExpRSumSub = try parse_sum_sub   <|> 
+                 try pIntExpRTMD     <|> 
+                 try pBasicIntExp    <|>
+                 error "Expresión inválida IntExp "
               
-{-
-ie_plus = ie_times ("+","-") ie_plus | ie_times
-ie_times = ie_0 ("*","%","/") ie_times | ie_0
-ie_0 = var | -ie_plus | const | (ie_plus)
--}
+    where parse_sum_sub = do    n <- pIntExpRTMD
+                                op <- ptk isSumSubOp
+                                m <- pIntExp
+                                return $ Bexpr n op m
+          isSumSubOp (Op TokPlus) = Just Plus
+          isSumSubOp (Op TokMinus) = Just Minus
+          isSumSubOp _ = Nothing
 
-ie_plus:: TParser IntExpr
-ie_plus = try parse_sum <|> try ie_times <|> error "Expresión inválida 1 "
-    where parse_sum = do
-                      n <-  ie_times
-                      op <- ptk esOperador
-                      m <- ie_plus
-                      return $ Bexpr n op m
-          esOperador (Op TokPlus) = Just Plus
-          esOperador (Op TokMinus) = Just Minus
-          esOperador _ = Nothing
+pIntExpRTMD:: TParser IntExpr
+pIntExpRTMD = try parse_times_div <|>
+              try pBasicIntExp    
+          
+    where parse_times_div = do  n <- pBasicIntExp
+                                op <- ptk isTimesDivOp
+                                m <- pIntExpRTMD
+                                return $ Bexpr n op m
+          isTimesDivOp (Op TokTimes) = Just Times
+          isTimesDivOp (Op TokMod) = Just Mod
+          isTimesDivOp (Op TokDiv) = Just Div
+          isTimesDivOp _ = Nothing
 
+pBasicIntExp:: TParser IntExpr
+pBasicIntExp = try var'         <|>
+               try num          <|>
+               try not          <|>
+               try nest_IntExpr <|>
+               error "Expresión inválida IntExp 2"
+          
+    where var' = do             v <- pvar
+                                return $ Var v
+          num = do              n <- ptk isNum
+                                return $ Const n
+          isNum (Num n) = Just n
+          isNum _ = Nothing
 
-ie_times:: TParser IntExpr
-ie_times = try parse_times <|> try  ie_zero <|> error "Expresión inválida 2"
-    where parse_times = do
-                        n <-  ie_zero
-                        op <- ptk esOperador
-                        m <- ie_times
-                        return $ Bexpr n op m
-          esOperador (Op TokTimes) = Just Times
-          esOperador (Op TokMod) = Just Mod
-          esOperador (Op TokDiv) = Just Div
-          esOperador _ = Nothing
-
-
-
-
-
-
-ie_zero:: TParser IntExpr
-ie_zero = try var' <|>  try negacion_general <|> try num <|> try  parentesis <|> error "Expresión inválida 3"
-            where var' = do 
-                            v <- pvar
-                            return $ Var v
-                  num = do n <- ptk isNum
-                           return $ Const n
-                  isNum (Num n) = Just n
-                  isNum _ = Nothing
-                  parentesis = do 
-                                    _ <- silentSym OpenParen
-                                    n <-  pIntExp
-                                    _ <- silentSym CloseParen
-                                    return $ n
-                  negacion_general = do _  <- ptk isNeg
-                                        n <- pIntExp
-                                        return $ Neg n
-                  isNeg (Op TokMinus) = Just Neg
-                  isNeg _ = Nothing
+          nest_IntExpr = do     _ <- silentSym OpenParen
+                                n <-  pIntExp
+                                _ <- silentSym CloseParen
+                                return $ n
+          not = do _  <- ptk isNeg
+                   n <- pBasicIntExp
+                   return $ Neg n
+          isNeg (Op TokMinus) = Just Neg
+          isNeg _ = Nothing
                 
-
 
 
 -- | Parser para constantes booleanas.
@@ -186,82 +173,82 @@ pBoolConst = do b <- pkws [ (KTrue,CTrue)
                           , (KFalse,CFalse)
                           ]
                 return b
-
  
 
 pAssert :: TParser Assert
-pAssert = p_Sii
+pAssert = try pBoolConst   <|> 
+          try pAssertIFF   <|>
+          try pAssertAO    <|>
+          try pAssertBasic 
 
-p_Sii :: TParser Assert
-p_Sii = try parse_Sii <|> try  p_Impl <|>  error "p_sii assert"
-        where  
-              parse_Sii = do       a_1 <-  p_Impl
-                                   r <- ptk esIff
-                                   a_2 <- p_Sii
-                                   return $ ABin a_1 r a_2
-              esIff (Op TokIff) = Just Iff
-              esIff _ = Nothing
+pAssertIFF :: TParser Assert
+pAssertIFF = try parse_Iff <|>
+             try parse_If 
 
-
-p_Impl :: TParser Assert
-p_Impl = try parse_Impl <|> try  p_Or <|>  error "p_impl assert"
-         where  
-               parse_Impl = do      a_1 <-  p_Or
-                                    r <- ptk esMultiple
-                                    a_2 <- p_Impl
-                                    return $ ABin a_1 r a_2
-               esMultiple (Op TokImpl) = Just Impl
-               esMultiple _ = Nothing
-
-
-p_Or :: TParser Assert
-p_Or = try parse_Or <|> try p_And <|>  error "p_or assert"
-       where  
-             parse_Or = do      a_1 <-  p_And
-                                r <- ptk esMultiple
-                                a_2 <- p_Or
+        where parse_Iff = do    a_1 <- pAssertAO
+                                r <- ptk isIff
+                                a_2 <- pAssert
                                 return $ ABin a_1 r a_2
-             esMultiple (Op TokOr) = Just Or
-             esMultiple _ = Nothing
+              isIff (Op TokIff) = Just Iff
+              isIff _ = Nothing
+
+              parse_If = do     a_1 <-  pAssertAO
+                                r <- ptk isIf
+                                a_2 <- pAssert
+                                return $ ABin a_1 r a_2
+              isIf (Op TokImpl) = Just Impl
+              isIf _ = Nothing
+
+pAssertAO :: TParser Assert
+pAssertAO = try parse_Or  <|>
+            try parse_And <|>
+            try pAssertBasic
+
+        where parse_Or = do     a_1 <-  pAssertBasic
+                                r <- ptk isOr
+                                a_2 <- pAssertAO
+                                return $ ABin a_1 r a_2
+              isOr (Op TokOr) = Just Or
+              isOr _ = Nothing
+
+              parse_And = do    a_1 <-  pAssertBasic
+                                r <- ptk isAnd
+                                a_2 <- pAssertAO
+                                return $ ABin a_1 r a_2
+              isAnd (Op TokAnd) = Just And
+              isAnd _ = Nothing
+
+pAssertBasic :: TParser Assert
+pAssertBasic = try pBoolConst <|>
+               try nest_assert <|>
+               try rel_assert  <|>
+               try not         <|>
+               try rel_assert 
 
 
-p_And :: TParser Assert
-p_And = try parse_And <|> try p_zero <|>  error "p_And assert"
-        where  
-              parse_And = do      a_1 <-  p_zero
-                                  r <- ptk esMultiple
-                                  a_2 <- p_And
-                                  return $ ABin a_1 r a_2
-              esMultiple (Op TokAnd) = Just And
-              esMultiple _ = Nothing
+        where nest_assert = do  _ <- silentSym OpenParen 
+                                st <- pAssert
+                                _ <- silentSym CloseParen
+                                return $ st
 
-p_zero :: TParser Assert
-p_zero = try pBoolConst <|> try negacion <|> try parentesis_ass  <|> try relaciones <|> error "p_zero assert"
-         where           
-               parentesis_ass = do _ <- silentSym OpenParen 
-                                   st <- pAssert
-                                   _ <- silentSym CloseParen
-                                   return $ st
+              not = do          _ <- ptk isNeg
+                                st <- pAssertBasic
+                                return $ Not st
+              isNeg (Op TokNot) = Just Not
+              isNeg _ = Nothing
 
-               negacion = do  _ <- ptk esNegacion
-                              st <- pAssert
-                              return $ Not st
-               esNegacion (Op TokNot) = Just Not
-               esNegacion _ = Nothing
-
-               relaciones = do 
-                                n <-  pIntExp
-                                r <- ptk esOperadorRelacional
+              rel_assert = do   n <- pIntExp
+                                r <- ptk isOpRel
                                 m <- pIntExp
                                 return $ Relacion n r m
 
-               esOperadorRelacional (Op TokEqual) = Just Eq
-               esOperadorRelacional (Op TokNotEq) = Just NEq
-               esOperadorRelacional (Op TokLess) = Just Less
-               esOperadorRelacional (Op TokLtEq) = Just LtEq
-               esOperadorRelacional (Op TokGreater) = Just Greater
-               esOperadorRelacional (Op TokGtEq) = Just GtEq
-               esOperadorRelacional _ = Nothing
+              isOpRel (Op TokEqual) = Just Eq
+              isOpRel (Op TokNotEq) = Just NEq
+              isOpRel (Op TokLess) = Just Less
+              isOpRel (Op TokLtEq) = Just LtEq
+              isOpRel (Op TokGreater) = Just Greater
+              isOpRel (Op TokGtEq) = Just GtEq
+              isOpRel _ = Nothing
 
 
 -- | Consumimos un keyword y nada más.
