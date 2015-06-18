@@ -34,6 +34,7 @@
 #include <malloc.h>
 #include <math.h> // posibles operaciones matematicas
 #include <assert.h>
+#include <string.h>
 #include <omp.h> //omp_get_wtime()
 
 // defino algunas constantes para el programa //
@@ -114,9 +115,9 @@ int cleari(unsigned int N, int * __restrict__ vec) {
 }
 
 int cleard(unsigned int N, double * __restrict__ vec) {
-    
-    for(unsigned int i = 0; i<N; ++i)
-        vec[i] = 0.f;
+    memset(vec, 0, sizeof(double) * N);
+    //for(unsigned int i = 0; i<N; ++i)
+    //    vec[i] = 0.f;
 
     return 0;
 }
@@ -337,25 +338,20 @@ void calculo_matrices(unsigned int nk, unsigned int nb,
 
     for(unsigned int i = kord; i<kord+l-1; ++i) {
         // ojo con los indices en esta parte //
-        for(unsigned int m = i-kord+1; m<=i; ++m) {
-//          if(m>0 && m<nb+1) {
-            if(m>0 && m<nb) {
-                for(unsigned int n = m; n<=i; ++n) {
-//                  if(n<nb+1) {
-                    if(n<nb) {
-                        for(unsigned int j = 0; j<intg; ++j) {
+        for(unsigned int m = i-kord+1; m<=i && m<nb ; ++m) {
+            for(unsigned int n = m; n<=i && n<nb; ++n) {
 
-                            double bm = 0, bn = 0;
+                for(unsigned int j = 0; j<intg; ++j) {
 
-                            rr = x[idx(k[i], j, intg)];
+                    double bm = 0, bn = 0;
 
-                            bm = bder(rr, t, kord, nk, m, i, Sp, bm, idx(k[i], j, intg));
-                            bn = bder(rr, t, kord, nk, n, i, Sp, bn, idx(k[i], j, intg));
+                    rr = x[idx(k[i], j, intg)];
 
-                            ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5*w[idx(k[i], j, intg)]*bm*bn/me;
+                    bm = bder(rr, t, kord, nk, m, i, Sp, bm, idx(k[i], j, intg));
+                    bn = bder(rr, t, kord, nk, n, i, Sp, bn, idx(k[i], j, intg));
 
-                        }
-                    }
+                    ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5*w[idx(k[i], j, intg)]*bm*bn/me;
+
                 }
             }
         }
@@ -372,7 +368,7 @@ void calculo_matrices(unsigned int nk, unsigned int nb,
     file = fopen("matrices.dat", "w");
     for(unsigned int i = 0; i<nb; ++i)
         for(unsigned int j=0; j<nb; ++j)
-            fprintf(file, "%i   %i  %.12f   %.12f   %.12f\n", i, j, s[idx(i,j,nb)], v0[idx(i,j,nb)], ke[idx(i,j,nb)]);
+            fprintf(file, "%i\t%i\t%.12f\t%.12f\t%.12f\n", i, j, s[idx(i,j,nb)], v0[idx(i,j,nb)], ke[idx(i,j,nb)]);
 
     fclose(file);
 
