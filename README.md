@@ -1,5 +1,5 @@
 facultad
 ========
 
-son los trabajos mios que mudo siempre por mail
+son los trabajos mios, que siempre me los mando por mail
 solo eso
