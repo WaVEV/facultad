@@ -42,57 +42,70 @@
 
 // defino algunos parametros del programa //
 
-#ifndef Rmin
-#define Rmin 0.0 // R minimo donde empieza el intervalo para la integracion //
+#ifndef R_MIN
+#define R_MIN 0.0 // R minimo donde empieza el intervalo para la integracion //
 #endif
 
-#ifndef Rmax
-#define Rmax 50.0 // R maximo donde termina el intervalo para la integracion //
+#ifndef R_MAX
+#define R_MAX 50.0 // R maximo donde termina el intervalo para la integracion //
 #endif
 
-#ifndef l
-#define l 50 // numero de intervalos en el que divido al intervalo [Rmin, Rmax] //
+#ifndef L_INTERVALS
+#define L_INTERVALS 510 // numero de intervalos en el que divido al intervalo [R_MIN, R_MAX] //
 #endif
 
-#ifndef kord
-#define kord 5 // orden de los B-splines, el grado es kord-1 //
+#ifndef KORD
+#define KORD 5 // orden de los B-splines, el grado es kord-1 //
 #endif
 
-#ifndef r1
-#define r1 5.0 // radio interio del pozo //
+#ifndef RADIO_1
+#define RADIO_1 5.0 // radio interio del pozo //
 #endif
 
-#ifndef r2
-#define r2 10.0 // radio exterior del pozo //
+#ifndef RADIO_2
+#define RADIO_2 10.0 // radio exterior del pozo //
 #endif
 
-#ifndef me
-#define me 1.0 // masa de la particula //
+#ifndef ME
+#define ME 1.0 // masa de la particula //
 #endif
 
-#ifndef intg
-#define intg 50 // grado de integracion por cuadratura //
+#ifndef INT_G
+#define INT_G 500 // grado de integracion por cuadratura //
 #endif
 
-#ifndef nev
-#define nev 15 // numero de autovalores que vamos a calcular //
+#ifndef NEV
+#define NEV 15 // numero de autovalores que vamos a calcular //
 #endif
 
-#ifndef lmax
-#define lmax 0 // momento angular que vamos a usar //
+#ifndef L_MAX
+#define L_MAX 0 // momento angular que vamos a usar //
 #endif
 
-#ifndef lambda_in
-#define lambda_in 0.0 // lambda inicial para el pozo //
+#ifndef LAMBDA_IN
+#define LAMBDA_IN 0.0 // lambda inicial para el pozo //
 #endif
 
-#ifndef lambda_fin
-#define lambda_fin 20.0 // lambda final para el pozo //
+#ifndef LAMBDA_FIN
+#define LAMBDA_FIN 20.0 // lambda final para el pozo //
 #endif
 
-#ifndef numero_puntos_lambda
-#define numero_puntos_lambda 200 // numero de puntos para calcular //
+#ifndef NUMEROS_PUNTO_LAMBDA
+#define NUMEROS_PUNTO_LAMBDA 200 // numero de puntos para calcular //
 #endif
+
+
+const unsigned int nk = L_INTERVALS+2*KORD-1;
+int k[L_INTERVALS+2*KORD-1];
+double  t[L_INTERVALS+2*KORD-1];
+double x[L_INTERVALS*INT_G], 
+        w[L_INTERVALS*INT_G];
+
+unsigned int nb = (L_INTERVALS+2*KORD-1)-KORD-2; // tamaño de la base //
+    
+double  s[((L_INTERVALS+2*KORD-1)-KORD-2)*((L_INTERVALS+2*KORD-1)-KORD-2)],
+        v0[((L_INTERVALS+2*KORD-1)-KORD-2)*((L_INTERVALS+2*KORD-1)-KORD-2)],
+        ke[((L_INTERVALS+2*KORD-1)-KORD-2)*((L_INTERVALS+2*KORD-1)-KORD-2)];
 
 // escribo las funciones del programa //
 int dsygvx_(int *itype, char *jobz, char *range, char * uplo, 
@@ -162,41 +175,41 @@ int KNOTS_PESOS(unsigned int nk, int * __restrict__ k,
         double * __restrict__ w){
 
     double dr, ri, rf;
-    double vx[intg+1], vw[intg+1];
-//  double * vx = calloc(intg+1, sizeof(double));
-//  double * vw = calloc(intg+1, sizeof(double));
+    double vx[INT_G+1], vw[INT_G+1];
+//  double * vx = calloc(INT_G+1, sizeof(double));
+//  double * vw = calloc(INT_G+1, sizeof(double));
 
-    dr = (Rmax-Rmin)/l;
+    dr = (R_MAX-R_MIN)/L_INTERVALS;
 
 
-    for(unsigned int i = 0; i<l; ++i) {
-        ri = Rmin + i*dr;
+    for(unsigned int i = 0; i<L_INTERVALS; ++i) {
+        ri = R_MIN + i*dr;
         rf = ri + dr;
-        gauleg(ri, rf, vx, vw, intg);
+        gauleg(ri, rf, vx, vw, INT_G);
 
-        for(unsigned int j = 0; j<intg; j += 1 ) {
-            x[idx(i, j, intg)]  = vx[j+1] ;//  x[idx(i, j+1, intg)] = vx[j+2];
+        for(unsigned int j = 0; j<INT_G; j += 1 ) {
+            x[idx(i, j, INT_G)]  = vx[j+1] ;//  x[idx(i, j+1, INT_G)] = vx[j+2];
 
-            w[idx(i, j, intg)]  = vw[j+1] ;//  w[idx(i, j+1, intg)] = vw[j+2];
+            w[idx(i, j, INT_G)]  = vw[j+1] ;//  w[idx(i, j+1, INT_G)] = vw[j+2];
         }
     }
 
     /// en esta parte controlar bien el tema de los indices de los vectores //
 
-    for(unsigned int i = 0; i<kord; ++i) {
-        t[i] = Rmin;
+    for(unsigned int i = 0; i<KORD; ++i) {
+        t[i] = R_MIN;
         k[i] = 0;
     }
 
-    for(unsigned int i = kord; i<kord+l; ++i) {
-        double pos = (i - kord + 1);
-        t[i] = Rmin + dr * pos;
+    for(unsigned int i = KORD; i<KORD+L_INTERVALS; ++i) {
+        double pos = (i - KORD + 1);
+        t[i] = R_MIN + dr * pos;
         k[i] = pos;
     }
 
-    for(unsigned int i = kord+l; i<nk; ++i) {
-        t[i] = Rmin + dr * l;;
-        k[i] = l;
+    for(unsigned int i = KORD+L_INTERVALS; i<nk; ++i) {
+        t[i] = R_MIN + dr * L_INTERVALS;
+        k[i] = L_INTERVALS;
     }
 
     return 0;
@@ -244,7 +257,7 @@ int bsplvb(double * __restrict__ t, unsigned int jhigh, double rr, int left, dou
     return 0; 
 }
 
-double bder(double rr, double * __restrict__ t, unsigned int korder, 
+double bder(double rr, double * __restrict__ t,
      unsigned int np, unsigned int indexm, unsigned int left,
      double * __restrict__ Sp, double dm, int ind ) {
 
@@ -253,27 +266,27 @@ double bder(double rr, double * __restrict__ t, unsigned int korder,
     if(t[0]<rr && rr<t[np-1]) {
 
         if(abs(rr-t[np-1])<1.e-10) {
-            if(indexm==np-korder) {
-                dm = (korder-1)/(t[np-1]-t[np-1-korder]);
+            if(indexm==np-KORD) {
+                dm = (KORD-1)/(t[np-1]-t[np-1-KORD]);
             }
             else {
-                dm = -(korder-1)/(t[np-1]-t[np-1-korder]);
+                dm = -(KORD-1)/(t[np-1]-t[np-1-KORD]);
             }
         }
 
-        bsplvb(t, korder-1, rr, left, Sp, ind);
+        bsplvb(t, KORD-1, rr, left, Sp, ind);
 
-        if(indexm-left+korder>=1 || indexm-left+korder<=korder) {
-            i = indexm-left+korder;
+        if(indexm-left+KORD>=1 || indexm-left+KORD<=KORD) {
+            i = indexm-left+KORD;
             if(1==i) {
-                dm = (korder-1)*(-Sp[i-1]/(t[indexm+korder]-t[indexm+1]));
+                dm = (KORD-1)*(-Sp[i-1]/(t[indexm+KORD]-t[indexm+1]));
             }
-            else if(korder==i) {
-                dm = (korder-1)*(Sp[i-1-1]/(t[indexm+korder-1]-t[indexm]));
+            else if(KORD==i) {
+                dm = (KORD-1)*(Sp[i-1-1]/(t[indexm+KORD-1]-t[indexm]));
             }
             else {
-                dm = (korder-1)*(Sp[i-1-1]/(t[indexm+korder-1]-t[indexm])
-                    - Sp[i-1]/(t[indexm+korder]-t[indexm+1]));
+                dm = (KORD-1)*(Sp[i-1-1]/(t[indexm+KORD-1]-t[indexm])
+                    - Sp[i-1]/(t[indexm+KORD]-t[indexm+1]));
             }
         }
 
@@ -289,68 +302,66 @@ void calculo_matrices(unsigned int nk, unsigned int nb,
               double * __restrict__ ke) {
 
     double ma, rr, _rr2;
-    double * Sp;
+    double Sp[KORD];
     FILE * file;
 
-    ma = 0.5*lmax*(lmax+1);
+    ma = 0.5*L_MAX*(L_MAX+1);
 
-    Sp = (double *) calloc(kord, sizeof(double));
-    // ojo con los limites en los for's //
-    for(unsigned int i = kord-1; i<kord+l-1; ++i) {
-        for(unsigned int j = 0; j<intg; ++j) {
-            rr = x[idx(k[i], j, intg)];
+    for(unsigned int i = KORD-1; i<KORD+L_INTERVALS-1; ++i) {
+        for(unsigned int j = 0; j<INT_G; ++j) {
+            rr = x[idx(k[i], j, INT_G)];
             _rr2= 1.0/(rr*rr);
 
-            bsplvb(t, kord, rr, i, Sp, idx(k[i], j, intg));
+            bsplvb(t, KORD, rr, i, Sp, idx(k[i], j, INT_G));
 
-            for(unsigned int m = kord-1 == i, im = i-kord + m ; m<kord && im<nb; ++m, ++im) {
+            for(unsigned int m = KORD-1 == i, im = i-KORD + m ; m<KORD && im<nb; ++m, ++im) {
 
-                for(unsigned int n = kord-1 == i, in = i-kord+n; n<kord && in<nb; ++n, ++in) {
+                for(unsigned int n = KORD-1 == i, in = i-KORD+n; n<KORD && in<nb; ++n, ++in) {
 
-                    s[idx(im, in, nb)] = s[idx(im, in, nb)] + Sp[m]*Sp[n]*w[idx(k[i], j, intg)];
+                    s[idx(im, in, nb)] += Sp[m]*Sp[n]*w[idx(k[i], j, INT_G)];
 
-                    ke[idx(im, in, nb)] = ke[idx(im, in, nb)] + ma*Sp[m]*Sp[n]*w[idx(k[i], j, intg)]*_rr2;
+                    ke[idx(im, in, nb)] += ma*Sp[m]*Sp[n]*w[idx(k[i], j, INT_G)]*_rr2;
 
-                    if(r1<rr && rr<r2) v0[idx(im, in, nb)] = v0[idx(im, in, nb)] + Sp[m]*Sp[n]*w[idx(k[i] , j, intg)];
+                    if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += Sp[m]*Sp[n]*w[idx(k[i] , j, INT_G)];
                 }
             }   
         }
     }
 
-    for(unsigned int m = 1; m<=kord-1; ++m) {
+    for(unsigned int m = 1; m<=KORD-1; ++m) {
 
-        for(unsigned int n = m; n<=kord-1; ++n) {
+        for(unsigned int n = m; n<=KORD-1; ++n) {
 
-            for(unsigned int j = 0; j<intg; ++j) {
+            for(unsigned int j = 0; j<INT_G; ++j) {
                 
                 double bm = 0, bn = 0;
 
-                rr = x[idx(k[kord-1], j, intg)];
+                rr = x[idx(k[KORD-1], j, INT_G)];
 
-                bm = bder(rr, t, kord, nk, m, kord-1, Sp, bm, idx(k[kord-1], j, intg));
-                bn = bder(rr, t, kord, nk, n, kord-1, Sp, bn, idx(k[kord-1], j, intg));
+                bm = bder(rr, t, nk, m, KORD-1, Sp, bm, idx(k[KORD-1], j, INT_G));
+                bn = bder(rr, t, nk, n, KORD-1, Sp, bn, idx(k[KORD-1], j, INT_G));
 
-                ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5*w[idx(k[kord-1], j, intg)]*bm*bn/me;
+                ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5*w[idx(k[KORD-1], j, INT_G)]*bm*bn/ME;
 
             }
         }
     }
 
-    for(unsigned int i = kord; i<kord+l-1; ++i) {
+    for(unsigned int i = KORD; i<KORD+L_INTERVALS-1; ++i) {
         // ojo con los indices en esta parte //
-        for(unsigned int m = i-kord+1; m<=i && m<nb ; ++m) {
+        for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
             for(unsigned int n = m; n<=i && n<nb; ++n) {
 
-                for(unsigned int j = 0; j<intg; ++j) {
+                for(unsigned int j = 0; j<INT_G; ++j) {
 
                     double bm = 0, bn = 0;
 
-                    rr = x[idx(k[i], j, intg)];
+                    rr = x[idx(k[i], j, INT_G)];
 
-                    bm = bder(rr, t, kord, nk, m, i, Sp, bm, idx(k[i], j, intg));
-                    bn = bder(rr, t, kord, nk, n, i, Sp, bn, idx(k[i], j, intg));
+                    bm = bder(rr, t, nk, m, i, Sp, bm, idx(k[i], j, INT_G));
+                    bn = bder(rr, t, nk, n, i, Sp, bn, idx(k[i], j, INT_G));
 
-                    ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5*w[idx(k[i], j, intg)]*bm*bn/me;
+                    ke[idx(m-1, n-1, nb)] += 0.5*w[idx(k[i], j, INT_G)]*bm*bn/ME;
 
                 }
             }
@@ -371,8 +382,6 @@ void calculo_matrices(unsigned int nk, unsigned int nb,
             fprintf(file, "%i\t%i\t%.12f\t%.12f\t%.12f\n", i, j, s[idx(i,j,nb)], v0[idx(i,j,nb)], ke[idx(i,j,nb)]);
 
     fclose(file);
-
-    free(Sp);
 }
 
 /*
@@ -417,19 +426,19 @@ void hamiltoniano_autovalores(unsigned int nb, double * __restrict__ s,
     // doy memoria a las matrices y vectores //
     h = (double *) calloc( nb*nb, sizeof(double));
     s_copy = (double *) calloc( nb*nb, sizeof(double));
-    auval = (double *) calloc( nev, sizeof(double));
-    auvec = (double *) calloc( nev*nb, sizeof(double));
+    auval = (double *) calloc( NEV, sizeof(double));
+    auvec = (double *) calloc( NEV*nb, sizeof(double));
     
     lambda = 1.0;
-    delta = (lambda_fin-lambda_in)/numero_puntos_lambda;
+    delta = (LAMBDA_FIN-LAMBDA_IN)/NUMEROS_PUNTO_LAMBDA;
 
     // abro el archivo para guardar los datos //
     fprintf(archivo, "# Autovalores calculados\n");
     fprintf(archivo, "# Lambda  auval[0]   auval[1] ....\n");
 
-    for(unsigned int j = 0; j<=numero_puntos_lambda; ++j) {
+    for(unsigned int j = 0; j<=NUMEROS_PUNTO_LAMBDA; ++j) {
 
-        lambda = lambda_in + delta*j;
+        lambda = LAMBDA_IN + delta*j;
     
         for(unsigned int m = 0; m<nb; ++m) {
             for(unsigned int n = 0; n<nb; ++n){
@@ -438,10 +447,10 @@ void hamiltoniano_autovalores(unsigned int nb, double * __restrict__ s,
             }
         }
 
-        eigenvalues( nb, nev, h, s_copy, auval, auvec );
+        eigenvalues( nb, NEV, h, s_copy, auval, auvec );
 
         fprintf(archivo, "%.5f   ", lambda);
-        for(unsigned int i = 0; i<nev; ++i) {
+        for(unsigned int i = 0; i<NEV; ++i) {
             fprintf(archivo, "%.15f   ", auval[i]);
         }
         fprintf(archivo, "\n");
@@ -454,49 +463,43 @@ void hamiltoniano_autovalores(unsigned int nb, double * __restrict__ s,
 int main(void) {
 
     // defino algunas variables que voy a usar //
-    unsigned int nk, nb;
-    int *k;
-    double *t, *x, *w;
-    double *s, *v0, *ke;
     double t_in, t_fin, t_n;
     FILE * archivo;
-    
-    nk = l+2*kord-1; // numero de knots //
-    nb = nk-kord-2; // tamaño de la base //
 
     // controlo algunos parametros //
-    assert(intg>kord);
-    assert(nev>0);
+    assert(INT_G>KORD);
+    assert(NEV>0);
 
     archivo = fopen("autovalores_pozo-1.dat", "w");
     // imprimo los parametros //
-    fprintf(archivo, "# Rmin=%.12f y Rmax=%.12f\n", Rmin, Rmax);
-    fprintf(archivo, "# Numero de intervalos l=%i\n", l);
-    fprintf(archivo, "# Orden los B-splines kord=%i\n", kord);
-    fprintf(archivo, "# Radios del pozo r1=%.12f y r2=%.12f\n", r1, r2);
-    fprintf(archivo, "# Masa de la particula me=%.12f\n", me);
-    fprintf(archivo, "# Grado de integracion de la cuadratura intg=%i\n", intg);
-    fprintf(archivo, "# Numero de autovalores nev=%i\n", nev);
-    fprintf(archivo, "# Momento angular que usamos lmax=%i\n", lmax);
+    fprintf(archivo, "# Rmin=%.12f y R_MAX=%.12f\n", R_MIN, R_MAX);
+    fprintf(archivo, "# Numero de intervalos l=%i\n", L_INTERVALS);
+    fprintf(archivo, "# Orden los B-splines kord=%i\n", KORD);
+    fprintf(archivo, "# Radios del pozo RADIO_1=%.12f y RADIO_2=%.12f\n", RADIO_1, RADIO_2);
+    fprintf(archivo, "# Masa de la particula me=%.12f\n", ME);
+    fprintf(archivo, "# Grado de integracion de la cuadratura INT_G=%i\n", INT_G);
+    fprintf(archivo, "# Numero de autovalores NEV=%i\n", NEV);
+    fprintf(archivo, "# Momento angular que usamos L_MAX=%i\n", L_MAX);
     fprintf(archivo, "# Numero de knots nk=%i\n", nk);
     fprintf(archivo, "# Tamaño de la base nb=%i\n", nb);
-    fprintf(archivo, "# Valores inicial y final del pozo, lambda_in=%.12f, lambda_fin=%.12f\n", lambda_in, lambda_fin);
-    fprintf(archivo, "# Numero de puntos lambda = %i\n", numero_puntos_lambda);
+    fprintf(archivo, "# Valores inicial y final del pozo, LAMBDA_IN=%.12f, LAMBDA_FIN=%.12f\n", LAMBDA_IN, LAMBDA_FIN);
+    fprintf(archivo, "# Numero de puntos lambda = %i\n", NUMEROS_PUNTO_LAMBDA);
 
     // doy memoria a las matrices que voy a necesitar //
-    k = (int *) malloc( nk*sizeof(int));
-    t = (double *) malloc( nk*sizeof(double));
-    x = (double *) malloc( l*intg*sizeof(double));
-    w = (double *) malloc( l*intg*sizeof(double));
-    s = (double *) malloc( nb*nb*sizeof(double));
-    v0 = (double *) malloc( nb*nb*sizeof(double));
-    ke = (double *) malloc( nb*nb*sizeof(double));
+    //k = (int *) malloc( nk*sizeof(int));
+    //t = (double *) malloc( nk*sizeof(double));
+   // x = (double *) malloc( L_INTERVALS*INT_G*sizeof(double));
+   // w = (double *) malloc( L_INTERVALS*INT_G*sizeof(double));
+    //s = (double *) malloc( nb*nb*sizeof(double));
+  //  v0 = (double *) malloc( nb*nb*sizeof(double));
+//    ke = (double *) malloc( nb*nb*sizeof(double));
+
 
     
     cleari(nk, k);
     cleard(nk, t);
-    cleard(l*intg, x);
-    cleard(l*intg, w);
+    cleard(L_INTERVALS*INT_G, x);
+    cleard(L_INTERVALS*INT_G, w);
     cleard(nb*nb, s);
     cleard(nb*nb, v0);
     cleard(nb*nb, ke);
@@ -512,8 +515,8 @@ int main(void) {
     // armo el hamiltoniano y calculo los autovalores //
 //  hamiltoniano_autovalores(nb, s, v0, ke, archivo);
     
-    t_n = (t_fin-t_in)/(nb*nb*l*intg),
-    printf("%i     %i     %i     %.12f  %.12f\n", l, nk, nb, t_fin-t_in, t_n); 
+    t_n = (t_fin-t_in)/(nb*nb*L_INTERVALS*INT_G),
+    printf("%i     %i     %i     %.12f  %.12f\n", L_INTERVALS, nk, nb, t_fin-t_in, t_n); 
     FILE *file;
     file = fopen("matrices.dat", "w");
     for(unsigned int i = 0; i<nb; ++i)
@@ -523,13 +526,13 @@ int main(void) {
     
     // libero la memoria //
     fclose(archivo);
-    free(ke);
-    free(v0);
-    free(s);
-    free(w);
-    free(x);
-    free(t);
-    free(k);
+//    free(ke);
+//    free(v0);
+//    free(s);
+//    free(w);
+//    free(x);
+//    free(t);
+ //   free(k);
     return 0;
 }
 
