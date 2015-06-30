@@ -33,8 +33,31 @@ Aca iré escribiendo lo que hago día a día
 
 
 
+Toma del pulso de mejoras:
+	Compilando con el flag de optimizacion O3 y en "mini", con los siguientes parametros:
 
+		EPS= 3.0e-14
+		R_MIN= 0.0 
+		R_MAX= 50.0
+		L_INTERVALS= 510
+		KORD= 5 
+		RADIO_1= 5.0 
+		RADIO_2= 10.0 
+		ME= 1.0 
+		INT_G= 500 
+		NEV= 15 
+		L_MAX= 0 
+		LAMBDA_IN= 0.0 
+		LAMBDA_FIN= 20.0 
+		NUMEROS_PUNTO_LAMBDA= 200 
+		BASE_KORD= 0
 
+	Performance:
+		Sólo se toma el tiempo que tarda el proceso calculo_matrices
+		Código base: 						2.727035049000 segundos
+		Con cacheo de la funcion bsplvb: 	2.177257117000 segundos
+        Reemplazando los arrelgos t y k:    1.811051266995 segundos
+        
 
 Apéndice:
         Lo primero que se hará para intentar paralelizar es usar algo asi como una "ventana corredisa" (en verdad esto fue lo primero que se me ocurrió) para operar en el circulo KNOTS para que no haya condicion de carrera cuando varios cores intenten escribir en el mismo lugar.
