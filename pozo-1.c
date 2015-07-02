@@ -98,6 +98,10 @@
 #define BASE_KORD 0
 #endif
 
+ #ifndef JMAX
+ #define JMAX 100
+ #endif
+
 const unsigned int nk = L_INTERVALS+2*KORD-1;
 int k[L_INTERVALS+2*KORD-1];
 double  t[L_INTERVALS+2*KORD-1];
@@ -173,7 +177,7 @@ void gauleg(double x1, double x2, double x[], double w[], int n) {
     }
 }
 
-int KNOTS_PESOS(double * __restrict__ x, double * __restrict__ w){
+int knots_pesos(double * __restrict__ x, double * __restrict__ w){
 
     double dr, ri, rf;
     double vx[INT_G+1], vw[INT_G+1];
@@ -212,13 +216,11 @@ int bsplvb(unsigned int jhigh, double rr, int left, double * __restrict__ biatx,
     }
     //printf("%d\n", ind);
     last_ind = ind;
-    unsigned int j, jp1, JMAX;
+    unsigned int j;
     double saved, term;
     
 
     //if(1 != index) printf("index no es igual a 1");
-
-    JMAX = 100;
 
     double deltar[JMAX];
     double deltal[JMAX];
@@ -227,18 +229,17 @@ int bsplvb(unsigned int jhigh, double rr, int left, double * __restrict__ biatx,
 
 
     for(j=0; j<jhigh-1; ++j) {
-        jp1 = j+1;
         deltar[j] = ti(left+j+1) - rr;
         deltal[j] = rr-ti(left-j);
 
         saved = 0.0;
         for(unsigned int i = 0; i<j+1; ++i) {
-            term = biatx[i]/(deltar[i]+deltal[jp1-i-1]);
+            term = biatx[i]/(deltar[i]+deltal[j-i]);
             biatx[i] = saved + deltar[i]*term;
-            saved = deltal[jp1-i-1]*term;
+            saved = deltal[j-i]*term;
         }
 
-        biatx[jp1] = saved;
+        biatx[j+1] = saved;
     }
 
     return 0; 
@@ -290,9 +291,9 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
 
     ma = 0.5*L_MAX*(L_MAX+1);
 
-    for(unsigned int i = KORD-1; i<KORD+L_INTERVALS-1; ++i) {
-        
-        int basek = i - (KORD-1);
+    for(unsigned int i = KORD-1, basek=0; i<KORD+L_INTERVALS-1; ++i, ++basek) {
+
+        //int  = i - (KORD-1);
         for(unsigned int j = 0; j<INT_G; ++j) {
             rr = x[idx(basek, j, INT_G)];
             _rr2= 1.0/(rr*rr);
@@ -319,7 +320,7 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
         for(unsigned int n = m; n<=KORD-1; ++n) {
 
             for(unsigned int j = 0; j<INT_G; ++j) {
-                
+
                 double bm = 0, bn = 0;
 
                 rr = x[idx(BASE_KORD, j, INT_G)];
@@ -333,10 +334,9 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
         }
     }
 
-    for(unsigned int i = KORD; i<KORD+L_INTERVALS-1; ++i) {
+    for(unsigned int i = KORD, basek=1; i<KORD+L_INTERVALS-1; ++i, ++basek) {
         // ojo con los indices en esta parte //
-        int basek = i - (KORD-1);
-        int base_index = idx(basek, 0, INT_G);
+        //int basek = i - (KORD-1);
         for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
             for(unsigned int n = m; n<=i && n<nb; ++n) {
 
@@ -346,10 +346,10 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
 
                     rr = x[idx(basek, j, INT_G)];
 
-                    bm = bder(rr, m, i, Sp, bm, base_index + j);
-                    bn = bder(rr, n, i, Sp, bn, base_index + j);
+                    bm = bder(rr, m, i, Sp, bm, idx(basek, 0, INT_G) + j);
+                    bn = bder(rr, n, i, Sp, bn, idx(basek, 0, INT_G) + j);
 
-                    ke[idx(m-1, n-1, nb)] += 0.5*w[base_index + j]*bm*bn/ME;
+                    ke[idx(m-1, n-1, nb)] += 0.5*w[idx(basek, 0, INT_G) + j]*bm*bn/ME;
 
                 }
             }
@@ -363,8 +363,6 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
             ke[idx(j, i, nb)] = ke[idx(i, j, nb)];
         }
     }
-
-    
 }
 
 /*
@@ -489,7 +487,7 @@ int main(void) {
 
     t_in = omp_get_wtime();
     // primero calculos los knost y los pesos para hacer la cuadratura //
-    KNOTS_PESOS(x, w);
+    knots_pesos(x, w);
 
     // calculo las matrices que necesito para resolver el problema //
     calculo_matrices(x, w, s, v0, ke);
