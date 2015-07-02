@@ -54,9 +54,10 @@ Toma del pulso de mejoras:
 
 	Performance:
 		Sólo se toma el tiempo que tarda el proceso calculo_matrices
-		Código base: 						2.727035049000 segundos
+		Código base:                            2.727035049000 segundos
 		Con cacheo de la funcion bsplvb: 	2.177257117000 segundos
-        Reemplazando los arrelgos t y k:    1.811051266995 segundos
+                Reemplazando los arrelgos t y k:        1.811051266995 segundos
+                Recalculo de un indice:                 1.772214113967 segundos
         
 
 Apéndice:
