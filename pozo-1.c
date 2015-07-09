@@ -238,16 +238,28 @@ int bsplvb(unsigned int jhigh, double rr, int left, double * __restrict__ biatx)
     return 0; 
 }
 
-double bder(double rr, unsigned int indexm, unsigned int left,
-     double * __restrict__ Sp, double dm) {
+
+double bder(unsigned int indexm, unsigned int left, double * __restrict__ Sp) {
 
     unsigned int i;
+    double dm = 0;
     //assert(ti(0)<rr && rr<ti(nk-1));
     
     //if(ti(0)<rr && rr<ti(nk-1)) {
-        //bsplvb(KORD-1, rr, left, Sp, ind);
+        //int cnt = 0;
+        //if(abs(rr-ti(nk-1))<1.e-10) {
+          //  cnt |= 1;
 
-        if(indexm-left+KORD>=1 || indexm <= left) {
+            //dm = ((indexm == nk - KORD)*2-1) * (KORD-1)/(ti(nk-1)-ti(nk-1-KORD));
+            /*if(indexm == nk - KORD) {
+                dm = (KORD-1)/(ti(nk-1)-ti(nk-1-KORD));
+            }
+            else {
+                dm = -(KORD-1)/(ti(nk-1)-ti(nk-1-KORD));
+            }*/
+        //}
+
+        if(indexm-left+KORD>=1) {
             i = indexm-left+KORD;
             if(1==i) {
                 dm = (KORD-1)*(-Sp[i-1]/(ti(indexm+KORD)-ti(indexm+1)));
@@ -259,10 +271,9 @@ double bder(double rr, unsigned int indexm, unsigned int left,
                 dm = (KORD-1)*(Sp[i-1-1]/(ti(indexm+KORD-1)-ti(indexm))
                     - Sp[i-1]/(ti(indexm+KORD)-ti(indexm+1)));
             }
-        }else if(abs(rr-ti(nk-1))<1.e-10){
-            dm = ((indexm == nk - KORD)*2-1) * (KORD-1)/(ti(nk-1)-ti(nk-1-KORD));
         }
 
+        //if(cnt == 2) printf("entre solo al segundo \n");
     //}
 
 
@@ -301,22 +312,16 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
         }
     }
 
-    for(unsigned int m = 1; m<=KORD-1; ++m) {
+    
+    for(unsigned int j = 0; j<INT_G; ++j) {
+        rr = x[idx(BASE_KORD, j, INT_G)];
+        bsplvb(KORD-1, rr, KORD-1, Sp);
+        for(unsigned int m = 1; m<=KORD-1; ++m) {
+            for(unsigned int n = m; n<=KORD-1; ++n) {
 
-        for(unsigned int n = m; n<=KORD-1; ++n) {
-
-            for(unsigned int j = 0; j<INT_G; ++j) {
-
-                double bm = 0, bn = 0;
-
-                rr = x[idx(BASE_KORD, j, INT_G)];
-
-                bsplvb(KORD-1, rr, KORD-1, Sp);
-
-                bm = bder(rr, m, KORD-1, Sp, bm);
-                bn = bder(rr, n, KORD-1, Sp, bn);
+                double  bm = bm = bder(m, KORD-1, Sp), 
+                        bn = bn = bder(n, KORD-1, Sp);
                 
-
                 ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5*w[idx(BASE_KORD, j, INT_G)]*bm*bn/ME;
 
             }
@@ -324,17 +329,15 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
     }
 
     for(unsigned int i = KORD, basek=1; i<KORD+L_INTERVALS-1; ++i, ++basek) {
-        for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
-            for(unsigned int n = m; n<=i && n<nb; ++n) {
-                for(unsigned int j = 0; j<INT_G; ++j) {
+        
+        for(unsigned int j = 0; j<INT_G; ++j) {
+            rr = x[idx(basek, j, INT_G)];
+            bsplvb(KORD-1, rr, i, Sp);
+            for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
+                for(unsigned int n = m; n<=i && n<nb; ++n) {
 
-                    double bm = 0, bn = 0;
-
-                    rr = x[idx(basek, j, INT_G)];
-                    bsplvb(KORD-1, rr, i, Sp);
-                    
-                    bm = bder(rr, m, i, Sp, bm);
-                    bn = bder(rr, n, i, Sp, bn);
+                    double  bm = bder(m, i, Sp), 
+                            bn = bder(n, i, Sp);
 
                     ke[idx(m-1, n-1, nb)] += 0.5*w[idx(basek, 0, INT_G) + j]*bm*bn/ME;
 
