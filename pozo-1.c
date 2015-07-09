@@ -208,19 +208,12 @@ double ti(int i){
     return R_MIN + (KORD - 1 < i) * dr * (pos - (pos - L_INTERVALS) * (KORD + L_INTERVALS - 1 < i));
 }
 
-int last_ind = -1;
-int bsplvb(unsigned int jhigh, double rr, int left, double * __restrict__ biatx, int ind ) {
 
-    if(ind == last_ind){
-        return 0;  
-    }
-    //printf("%d\n", ind);
-    last_ind = ind;
+int bsplvb(unsigned int jhigh, double rr, int left, double * __restrict__ biatx) {
+  
     unsigned int j;
     double saved, term;
     
-
-    //if(1 != index) printf("index no es igual a 1");
 
     double deltar[JMAX];
     double deltal[JMAX];
@@ -246,24 +239,15 @@ int bsplvb(unsigned int jhigh, double rr, int left, double * __restrict__ biatx,
 }
 
 double bder(double rr, unsigned int indexm, unsigned int left,
-     double * __restrict__ Sp, double dm, int ind ) {
+     double * __restrict__ Sp, double dm) {
 
     unsigned int i;
+    //assert(ti(0)<rr && rr<ti(nk-1));
     
-    if(ti(0)<rr && rr<ti(nk-1)) {
+    //if(ti(0)<rr && rr<ti(nk-1)) {
+        //bsplvb(KORD-1, rr, left, Sp, ind);
 
-        if(abs(rr-ti(nk-1))<1.e-10) {
-            if(indexm==nk-KORD) {
-                dm = (KORD-1)/(ti(nk-1)-ti(nk-1-KORD));
-            }
-            else {
-                dm = -(KORD-1)/(ti(nk-1)-ti(nk-1-KORD));
-            }
-        }
-
-        bsplvb(KORD-1, rr, left, Sp, ind);
-
-        if(indexm-left+KORD>=1 || indexm-left+KORD<=KORD) {
+        if(indexm-left+KORD>=1 || indexm <= left) {
             i = indexm-left+KORD;
             if(1==i) {
                 dm = (KORD-1)*(-Sp[i-1]/(ti(indexm+KORD)-ti(indexm+1)));
@@ -275,9 +259,12 @@ double bder(double rr, unsigned int indexm, unsigned int left,
                 dm = (KORD-1)*(Sp[i-1-1]/(ti(indexm+KORD-1)-ti(indexm))
                     - Sp[i-1]/(ti(indexm+KORD)-ti(indexm+1)));
             }
+        }else if(abs(rr-ti(nk-1))<1.e-10){
+            dm = ((indexm == nk - KORD)*2-1) * (KORD-1)/(ti(nk-1)-ti(nk-1-KORD));
         }
 
-    }
+    //}
+
 
     return dm;
 }
@@ -292,13 +279,12 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
     ma = 0.5*L_MAX*(L_MAX+1);
 
     for(unsigned int i = KORD-1, basek=0; i<KORD+L_INTERVALS-1; ++i, ++basek) {
-
-        //int  = i - (KORD-1);
+        
         for(unsigned int j = 0; j<INT_G; ++j) {
             rr = x[idx(basek, j, INT_G)];
             _rr2= 1.0/(rr*rr);
             
-            bsplvb(KORD, rr, i, Sp, idx(basek, j, INT_G));
+            bsplvb(KORD, rr, i, Sp);
             double wikj = w[idx(basek, j, INT_G)];
 
             for(unsigned int m = (KORD-1 == i), im = i-KORD + m ; m<KORD && im<nb; ++m, ++im) {
@@ -325,8 +311,11 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
 
                 rr = x[idx(BASE_KORD, j, INT_G)];
 
-                bm = bder(rr, m, KORD-1, Sp, bm, idx(BASE_KORD, j, INT_G));
-                bn = bder(rr, n, KORD-1, Sp, bn, idx(BASE_KORD, j, INT_G));
+                bsplvb(KORD-1, rr, KORD-1, Sp);
+
+                bm = bder(rr, m, KORD-1, Sp, bm);
+                bn = bder(rr, n, KORD-1, Sp, bn);
+                
 
                 ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5*w[idx(BASE_KORD, j, INT_G)]*bm*bn/ME;
 
@@ -335,19 +324,17 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
     }
 
     for(unsigned int i = KORD, basek=1; i<KORD+L_INTERVALS-1; ++i, ++basek) {
-        // ojo con los indices en esta parte //
-        //int basek = i - (KORD-1);
         for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
             for(unsigned int n = m; n<=i && n<nb; ++n) {
-
                 for(unsigned int j = 0; j<INT_G; ++j) {
 
                     double bm = 0, bn = 0;
 
                     rr = x[idx(basek, j, INT_G)];
-
-                    bm = bder(rr, m, i, Sp, bm, idx(basek, 0, INT_G) + j);
-                    bn = bder(rr, n, i, Sp, bn, idx(basek, 0, INT_G) + j);
+                    bsplvb(KORD-1, rr, i, Sp);
+                    
+                    bm = bder(rr, m, i, Sp, bm);
+                    bn = bder(rr, n, i, Sp, bn);
 
                     ke[idx(m-1, n-1, nb)] += 0.5*w[idx(basek, 0, INT_G) + j]*bm*bn/ME;
 
