@@ -280,7 +280,7 @@ double bder(unsigned int indexm, unsigned int left, double * __restrict__ Sp) {
     return dm;
 }
 
-void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
+void calculo_matrices(const double * __restrict__ const x, const double * __restrict__ const w,
               double * __restrict__ s, double * __restrict__ v0,
               double * __restrict__ ke) {
 
@@ -319,8 +319,8 @@ void calculo_matrices(double * __restrict__ x, double * __restrict__ w,
         for(unsigned int m = 1; m<=KORD-1; ++m) {
             for(unsigned int n = m; n<=KORD-1; ++n) {
 
-                double  bm = bm = bder(m, KORD-1, Sp), 
-                        bn = bn = bder(n, KORD-1, Sp);
+                double  bm = bder(m, KORD-1, Sp), 
+                        bn = bder(n, KORD-1, Sp);
                 
                 ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5*w[idx(BASE_KORD, j, INT_G)]*bm*bn/ME;
 
