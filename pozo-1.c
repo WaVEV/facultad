@@ -284,35 +284,40 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
               double * __restrict__ s, double * __restrict__ v0,
               double * __restrict__ ke) {
 
-    double ma, rr, _rr2;
+    double ma;
     double Sp[KORD];
 
     ma = 0.5*L_MAX*(L_MAX+1);
-
-    for(unsigned int i = KORD-1, basek=0; i<KORD+L_INTERVALS-1; ++i, ++basek) {
+    #pragma omp parallel shared(ma)
+    {
+        double rr, _rr2;
+        double Sp[KORD];
         
-        for(unsigned int j = 0; j<INT_G; ++j) {
-            rr = x[idx(basek, j, INT_G)];
-            _rr2= 1.0/(rr*rr);
+        for(unsigned int i = KORD-1, basek=0; i<KORD+L_INTERVALS-1; ++i, ++basek) {
             
-            bsplvb(KORD, rr, i, Sp);
-            double wikj = w[idx(basek, j, INT_G)];
+            for(unsigned int j = 0; j<INT_G; ++j) {
+                rr = x[idx(basek, j, INT_G)];
+                _rr2= 1.0/(rr*rr);
+                
+                bsplvb(KORD, rr, i, Sp);
+                double wikj = w[idx(basek, j, INT_G)];
 
-            for(unsigned int m = (KORD-1 == i), im = i-KORD + m ; m<KORD && im<nb; ++m, ++im) {
-                double sp_m = Sp[m];
-                for(unsigned int n = (KORD-1 == i), in = i-KORD+n; n<KORD && in<nb; ++n, ++in) {
+                for(unsigned int m = (KORD-1 == i), im = i-KORD + m ; m<KORD && im<nb; ++m, ++im) {
+                    double sp_m = Sp[m];
+                    for(unsigned int n = (KORD-1 == i), in = i-KORD+n; n<KORD && in<nb; ++n, ++in) {
 
-                    s[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
+                        s[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
 
-                    ke[idx(im, in, nb)] += ma*sp_m * Sp[n] * wikj * _rr2;
+                        ke[idx(im, in, nb)] += ma*sp_m * Sp[n] * wikj * _rr2;
 
-                    if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
-                }
-            }   
+                        if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
+                    }
+                }   
+            }
         }
     }
 
-    
+    double rr;
     for(unsigned int j = 0; j<INT_G; ++j) {
         rr = x[idx(BASE_KORD, j, INT_G)];
         bsplvb(KORD-1, rr, KORD-1, Sp);

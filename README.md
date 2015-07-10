@@ -31,33 +31,43 @@ Aca iré escribiendo lo que hago día a día
         2) Implemetar la primera idea de paralelización
         3) Usar los pragmas OPM
 
+09/06/2015
+    Tareas hechas:
+        1) Se modifico el orden de calculo para minimizar cuentas
+        2) Se profundizo en el flujo de la funcion bder
 
+    Problemas:
+        1) La funcion bder hace cosas "de mas", preguntar el argumento teorico de esas cosas
+
+    Tareas para la próxima
+        1) Hacer el blocke omp con una slide window
 
 Toma del pulso de mejoras:
-	Compilando con el flag de optimizacion O3 y en "mini", con los siguientes parametros:
+    Compilando con el flag de optimizacion O3 y en "mini", con los siguientes parametros:
 
-		EPS= 3.0e-14
-		R_MIN= 0.0 
-		R_MAX= 50.0
-		L_INTERVALS= 510
-		KORD= 5 
-		RADIO_1= 5.0 
-		RADIO_2= 10.0 
-		ME= 1.0 
-		INT_G= 500 
-		NEV= 15 
-		L_MAX= 0 
-		LAMBDA_IN= 0.0 
-		LAMBDA_FIN= 20.0 
-		NUMEROS_PUNTO_LAMBDA= 200 
-		BASE_KORD= 0
+        EPS= 3.0e-14
+        R_MIN= 0.0 
+        R_MAX= 50.0
+        L_INTERVALS= 510
+        KORD= 5 
+        RADIO_1= 5.0 
+        RADIO_2= 10.0 
+        ME= 1.0 
+        INT_G= 500 
+        NEV= 15 
+        L_MAX= 0 
+        LAMBDA_IN= 0.0 
+        LAMBDA_FIN= 20.0 
+        NUMEROS_PUNTO_LAMBDA= 200 
+        BASE_KORD= 0
 
-	Performance:
-		Sólo se toma el tiempo que tarda el proceso calculo_matrices
-		Código base:                            2.727035049000 segundos
-		Con cacheo de la funcion bsplvb: 	2.177257117000 segundos
-                Reemplazando los arrelgos t y k:        1.811051266995 segundos
-                Recalculo de un indice:                 1.772214113967 segundos
+    Performance:
+        Sólo se toma el tiempo que tarda el proceso calculo_matrices
+        Código base:                        2.727035049000 segundos
+        Con cacheo de la funcion bsplvb:    2.177257117000 segundos
+        Reemplazando los arrelgos t y k:    1.811051266995 segundos
+        Factorizacion de código:            1.676901567989 segundos
+
         
 
 Apéndice:
