@@ -288,10 +288,10 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
     double Sp[KORD];
 
     ma = 0.5*L_MAX*(L_MAX+1);
-    #pragma omp parallel shared(ma)
-    {
+    
+    
         double rr, _rr2;
-        double Sp[KORD];
+        //double Sp[KORD];
         
         for(unsigned int i = KORD-1, basek=0; i<KORD+L_INTERVALS-1; ++i, ++basek) {
             
@@ -315,9 +315,9 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
                 }   
             }
         }
-    }
+    
 
-    double rr;
+    //double rr;
     for(unsigned int j = 0; j<INT_G; ++j) {
         rr = x[idx(BASE_KORD, j, INT_G)];
         bsplvb(KORD-1, rr, KORD-1, Sp);
