@@ -280,44 +280,55 @@ double bder(unsigned int indexm, unsigned int left, double * __restrict__ Sp) {
     return dm;
 }
 
+
+
 void calculo_matrices(const double * __restrict__ const x, const double * __restrict__ const w,
               double * __restrict__ s, double * __restrict__ v0,
               double * __restrict__ ke) {
 
-    double ma;
+    #ifndef NUM_THREADS    
+    #define NUM_THREADS 4
+    #endif
     double Sp[KORD];
-
-    ma = 0.5*L_MAX*(L_MAX+1);
     
-    
-        double rr, _rr2;
-        //double Sp[KORD];
-        
-        for(unsigned int i = KORD-1, basek=0; i<KORD+L_INTERVALS-1; ++i, ++basek) {
-            
-            for(unsigned int j = 0; j<INT_G; ++j) {
-                rr = x[idx(basek, j, INT_G)];
-                _rr2= 1.0/(rr*rr);
-                
-                bsplvb(KORD, rr, i, Sp);
-                double wikj = w[idx(basek, j, INT_G)];
+    for(unsigned int k=0 ; k<KORD+L_INTERVALS-1 ; k+=KORD*NUM_THREADS)
+    {
 
-                for(unsigned int m = (KORD-1 == i), im = i-KORD + m ; m<KORD && im<nb; ++m, ++im) {
-                    double sp_m = Sp[m];
-                    for(unsigned int n = (KORD-1 == i), in = i-KORD+n; n<KORD && in<nb; ++n, ++in) {
+        for(unsigned int iters=0; iters < KORD; ++iters) {
+            #pragma omp parallel shared(k, iters) num_threads(NUM_THREADS)
+            {
+                double ma = 0.5*L_MAX*(L_MAX+1);
+                double rr, _rr2;
+                double Sp[KORD];
+                size_t thread_num = omp_get_thread_num();
+                int basek = k+thread_num * KORD + iters;
+                unsigned int i = KORD-1 + k + (thread_num * KORD) + iters;
+                if(i<KORD+L_INTERVALS-1){
+                    for(unsigned int j = 0; j<INT_G; ++j) {
+                        rr = x[idx(basek, j, INT_G)];
+                        _rr2= 1.0/(rr*rr);
 
-                        s[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
+                        bsplvb(KORD, rr, i, Sp);
+                        double wikj = w[idx(basek, j, INT_G)];
 
-                        ke[idx(im, in, nb)] += ma*sp_m * Sp[n] * wikj * _rr2;
+                        for(unsigned int m = (KORD-1 == i), im = i-KORD + m ; m<KORD && im<nb; ++m, ++im) {
+                            double sp_m = Sp[m];
+                            for(unsigned int n = (KORD-1 == i), in = i-KORD+n; n<KORD && in<nb; ++n, ++in) {
 
-                        if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
+                                s[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
+
+                                ke[idx(im, in, nb)] += ma*sp_m * Sp[n] * wikj * _rr2;
+
+                                if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
+                            }
+                        }   
                     }
-                }   
-            }
+                }
+           }
         }
-    
+    }
 
-    //double rr;
+    double rr;
     for(unsigned int j = 0; j<INT_G; ++j) {
         rr = x[idx(BASE_KORD, j, INT_G)];
         bsplvb(KORD-1, rr, KORD-1, Sp);
