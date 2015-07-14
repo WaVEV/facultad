@@ -143,7 +143,7 @@ int cleard(unsigned int N, double * __restrict__ vec) {
 }
 
 
-void gauleg(double x1, double x2, double x[], double w[], int n) {
+void gauleg(double x1, double x2, double * __restrict__ x, double * __restrict__ w, int n) {
 /* Given the lower and upper limits of integration x1 and x2, 
  * and given n, this routine returns arrays x[1..n] and w[1..n]
  * of length n, containing the abscissas and weights of the Gauss-
@@ -156,8 +156,8 @@ void gauleg(double x1, double x2, double x[], double w[], int n) {
     xm = 0.5*(x2+x1);
     xl = 0.5*(x2-x1);
 
-    for (i = 1; i<=m; i++) {
-        z = cos(3.141592654*(i-0.25)/(n+0.5));
+    for (i = 0; i<m; i++) {
+        z = cos(M_PI*((i+1)-0.25)/(n+0.5));
         do {
             p1 = 1.0;
             p2 = 0.0;
@@ -171,32 +171,25 @@ void gauleg(double x1, double x2, double x[], double w[], int n) {
             z = z1-p1/pp;
         } while (fabs(z-z1) > EPS);
         x[i] = xm-xl*z;
-        x[n+1-i] = xm+xl*z;
+        x[n-i-1] = xm+xl*z;
         w[i] = 2.0*xl/((1.0-z*z)*pp*pp);
-        w[n+1-i] = w[i];
+        w[n-i-1] = w[i];
     }
 }
 
 int knots_pesos(double * __restrict__ x, double * __restrict__ w){
 
     double dr, ri, rf;
-    double vx[INT_G+1], vw[INT_G+1];
-//  double * vx = calloc(INT_G+1, sizeof(double));
-//  double * vw = calloc(INT_G+1, sizeof(double));
+    double * vx, * vw;
 
     dr = (R_MAX-R_MIN)/L_INTERVALS;
-
 
     for(unsigned int i = 0; i<L_INTERVALS; ++i) {
         ri = R_MIN + i*dr;
         rf = ri + dr;
+        vx = &x[idx(i, 0, INT_G)];
+        vw = &w[idx(i, 0, INT_G)];
         gauleg(ri, rf, vx, vw, INT_G);
-
-        for(unsigned int j = 0; j<INT_G; j += 1 ) {
-            x[idx(i, j, INT_G)]  = vx[j+1] ;//  x[idx(i, j+1, INT_G)] = vx[j+2];
-
-            w[idx(i, j, INT_G)]  = vw[j+1] ;//  w[idx(i, j+1, INT_G)] = vw[j+2];
-        }
     }
 
     return 0;
@@ -280,55 +273,44 @@ double bder(unsigned int indexm, unsigned int left, double * __restrict__ Sp) {
     return dm;
 }
 
-
-
 void calculo_matrices(const double * __restrict__ const x, const double * __restrict__ const w,
               double * __restrict__ s, double * __restrict__ v0,
               double * __restrict__ ke) {
 
-    #ifndef NUM_THREADS    
-    #define NUM_THREADS 4
-    #endif
+    double ma;
     double Sp[KORD];
+
+    ma = 0.5*L_MAX*(L_MAX+1);
     
-    for(unsigned int k=0 ; k<KORD+L_INTERVALS-1 ; k+=KORD*NUM_THREADS)
-    {
+    
+        double rr, _rr2;
+        //double Sp[KORD];
+        
+        for(unsigned int i = KORD-1, basek=0; i<KORD+L_INTERVALS-1; ++i, ++basek) {
+            
+            for(unsigned int j = 0; j<INT_G; ++j) {
+                rr = x[idx(basek, j, INT_G)];
+                _rr2= 1.0/(rr*rr);
+                
+                bsplvb(KORD, rr, i, Sp);
+                double wikj = w[idx(basek, j, INT_G)];
 
-        for(unsigned int iters=0; iters < KORD; ++iters) {
-            #pragma omp parallel shared(k, iters) num_threads(NUM_THREADS)
-            {
-                double ma = 0.5*L_MAX*(L_MAX+1);
-                double rr, _rr2;
-                double Sp[KORD];
-                size_t thread_num = omp_get_thread_num();
-                int basek = k+thread_num * KORD + iters;
-                unsigned int i = KORD-1 + k + (thread_num * KORD) + iters;
-                if(i<KORD+L_INTERVALS-1){
-                    for(unsigned int j = 0; j<INT_G; ++j) {
-                        rr = x[idx(basek, j, INT_G)];
-                        _rr2= 1.0/(rr*rr);
+                for(unsigned int m = (KORD-1 == i), im = i-KORD + m ; m<KORD && im<nb; ++m, ++im) {
+                    double sp_m = Sp[m];
+                    for(unsigned int n = (KORD-1 == i), in = i-KORD+n; n<KORD && in<nb; ++n, ++in) {
 
-                        bsplvb(KORD, rr, i, Sp);
-                        double wikj = w[idx(basek, j, INT_G)];
+                        s[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
 
-                        for(unsigned int m = (KORD-1 == i), im = i-KORD + m ; m<KORD && im<nb; ++m, ++im) {
-                            double sp_m = Sp[m];
-                            for(unsigned int n = (KORD-1 == i), in = i-KORD+n; n<KORD && in<nb; ++n, ++in) {
+                        ke[idx(im, in, nb)] += ma*sp_m * Sp[n] * wikj * _rr2;
 
-                                s[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
-
-                                ke[idx(im, in, nb)] += ma*sp_m * Sp[n] * wikj * _rr2;
-
-                                if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
-                            }
-                        }   
+                        if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
                     }
-                }
-           }
+                }   
+            }
         }
-    }
+    
 
-    double rr;
+    //double rr;
     for(unsigned int j = 0; j<INT_G; ++j) {
         rr = x[idx(BASE_KORD, j, INT_G)];
         bsplvb(KORD-1, rr, KORD-1, Sp);
@@ -375,38 +357,31 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
 void eigenvalues(int n, int m, double * __restrict__ a,
          double * __restrict__ b, double * __restrict__ w, 
          double * __restrict__ z) {
-
     int itype, lda, ldb, ldz;
     int il, iu, lwork, info;
     char jobz, range, uplo;
     double abstol, vl, vu;
     double * work;
     int * iwork, * ifail;
-
     // le doy los valores correspondientes a las distintas variables //
     itype = 1; lda = n; ldb = n; ldz = n;
     vl = 0.0; vu = 0.0;
     jobz = 'V'; range = 'I'; uplo = 'U';
     il = 1; iu = m; lwork = 9*n;
-
     // le doy memoria a las matrices que neceista dsygvx //
     work = (double *) malloc(lwork*sizeof(double));
     iwork = (int *) malloc(5*n*sizeof(int));
     ifail = (int *) malloc(n*sizeof(int));
-
     dsygvx_( &itype, &jobz, &range, &uplo, &n, a, &lda, b, &ldb, 
          &vl, &vu, &il, &iu, &abstol, &m, w, z, &ldz, work, 
          &lwork, iwork, ifail, &info);
-
     free(work); 
     free(iwork); 
     free(ifail);
 } 
-
 void hamiltoniano_autovalores(unsigned int nb, double * __restrict__ s,
                   double * __restrict__ v0, double * __restrict__ ke,
                   FILE * archivo) {
-
     double * h, * auval, * auvec, * s_copy;
     double lambda, delta;
     
@@ -418,13 +393,10 @@ void hamiltoniano_autovalores(unsigned int nb, double * __restrict__ s,
     
     lambda = 1.0;
     delta = (LAMBDA_FIN-LAMBDA_IN)/NUMEROS_PUNTO_LAMBDA;
-
     // abro el archivo para guardar los datos //
     fprintf(archivo, "# Autovalores calculados\n");
     fprintf(archivo, "# Lambda  auval[0]   auval[1] ....\n");
-
     for(unsigned int j = 0; j<=NUMEROS_PUNTO_LAMBDA; ++j) {
-
         lambda = LAMBDA_IN + delta*j;
     
         for(unsigned int m = 0; m<nb; ++m) {
@@ -433,17 +405,13 @@ void hamiltoniano_autovalores(unsigned int nb, double * __restrict__ s,
                 s_copy[idx(n, m, nb)] = s[idx(n, m, nb)];
             }
         }
-
         eigenvalues( nb, NEV, h, s_copy, auval, auvec );
-
         fprintf(archivo, "%.5f   ", lambda);
         for(unsigned int i = 0; i<NEV; ++i) {
             fprintf(archivo, "%.15f   ", auval[i]);
         }
         fprintf(archivo, "\n");
-
     }
-
     free(h); free(s_copy); free(auval); free(auvec);
 }*/
 
@@ -522,4 +490,3 @@ int main(void) {
  //   free(k);
     return 0;
 }
-

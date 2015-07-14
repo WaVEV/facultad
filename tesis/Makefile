@@ -3,7 +3,7 @@ BIN			= pozo-1
 
 # Flags
 # CFLAGS			= -std=gnu99 -Wall -Wextra
-CFLAGS			= -std=gnu99 -Wall -Wextra -fopenmp  -g -O3
+CFLAGS			= -std=gnu99 -Wall -Wextra -fopenmp  -g -O3 -pg
 LDFLAGS			= -llapack -lm 
 
 # Default Values
@@ -21,13 +21,14 @@ lmax			= 0
 lambda_in		= 0.0f
 lambda_fin		= 20.0f
 numero_puntos_lambda	= 200
+NUM_THREADS             = 8
 OFILE			= [CPU,$(Q),$(Rmin),$(Rmax),$(l),$(kord),$(r1),$(r2),$(me),$(intg), \
 			   $(nev),$(lmax),$(lambda_in),$(lambda_fin),$(numero_puntos_lambda)].dat
 
 # Simulation Parameters
 #PARAMETERS		= -DQ=$(Q) -DRmin=$(Rmin) -DRmax=$(Rmax) -Dl=$(l) -Dkord=$(kord) \
 #			  -Dr1=$(r1) -Dr2=$(r2) -Dme=$(me) -Dintg=$(intg) -Dnev=$(nev) -Dlamx=$(lmax) \
-#			  -Dlambda_in=$(lambda_in) -Dlambda_fin=$(lambda_fin) -Dnumero_puntos_lambda=$(numero_puntos_lambda)
+#			  -Dlambda_in=$(lambda_in) -Dlambda_fin=$(lambda_fin) -Dnumero_puntos_lambda=$(numero_puntos_lambda) -DNUM_THREADS=$(NUM_THREADS)
 
 # Compilers
 CC			= gcc
