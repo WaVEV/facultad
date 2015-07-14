@@ -181,9 +181,8 @@ int knots_pesos(double * __restrict__ x, double * __restrict__ w){
 
     double dr, ri, rf;
     double * vx, * vw;
-
     dr = (R_MAX-R_MIN)/L_INTERVALS;
-    #pragma omp parallel for shared(dr) private(vx, vw, ri, rf)
+    #pragma omp parallel for private(vx, vw, ri, rf)
     for(unsigned int i = 0; i<L_INTERVALS; ++i) {
         ri = R_MIN + i*dr;
         rf = ri + dr;
