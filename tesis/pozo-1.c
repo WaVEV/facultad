@@ -103,10 +103,7 @@
  #endif
 
 const unsigned int nk = L_INTERVALS+2*KORD-1;
-int k[L_INTERVALS+2*KORD-1];
-double  t[L_INTERVALS+2*KORD-1];
-double x[L_INTERVALS*INT_G], 
-        w[L_INTERVALS*INT_G];
+double x[INT_G], w[INT_G];
 
 unsigned int nb = (L_INTERVALS+2*KORD-1)-KORD-2; // tamaño de la base //
     
@@ -142,6 +139,29 @@ int cleard(unsigned int N, double * __restrict__ vec) {
     return 0;
 }
 
+void setxparameters(int i, double *xm, double *xl){
+    double dr = (R_MAX-R_MIN)/L_INTERVALS;
+    double x1 = R_MIN + i * dr, 
+           x2 = x1 + dr;
+    *xm = 0.5*(x2 + x1);
+    *xl = 0.5*(x2 - x1);
+}
+
+double eval_xi(int i, int j, const double * x){
+    double xm, xl;
+    setxparameters(i, &xm, &xl);
+    if(j >= (INT_G + 1) / 2){
+        return xm + x[j] * xl;
+    }else{
+        return xm - x[j] * xl;
+    }
+}
+
+double eval_wi(int i, int j, const double * w){
+    double xm, xl;
+    setxparameters(i, &xm, &xl);
+    return 2.0*xl / w[j];
+}
 
 void gauleg(double x1, double x2, double * __restrict__ x, double * __restrict__ w, int n) {
 /* Given the lower and upper limits of integration x1 and x2, 
@@ -173,7 +193,40 @@ void gauleg(double x1, double x2, double * __restrict__ x, double * __restrict__
         x[i] = xm-xl*z;
         x[n-i-1] = xm+xl*z;
         w[i] = 2.0*xl/((1.0-z*z)*pp*pp);
-        w[n-i-1] = w[i];
+        //w[n-i-1] = w[i];
+        w[n-i-1] = 2.0*xl/((1.0-z*z)*pp*pp);
+    }
+}
+
+void gaulegm(double * __restrict__ x, double * __restrict__ w, int n) {
+/* Given the lower and upper limits of integration x1 and x2, 
+ * and given n, this routine returns arrays x[1..n] and w[1..n]
+ * of length n, containing the abscissas and weights of the Gauss-
+ * Legendre n-point quadrature formula.
+*/
+    int m, j, i;
+    double z1, z, pp, p3, p2, p1;
+
+    m = (n+1)/2;
+
+    for (i = 0; i<m; i++) {
+        z = cos(M_PI*((i+1)-0.25)/(n+0.5));
+        do {
+            p1 = 1.0;
+            p2 = 0.0;
+            for (j = 1;j<=n;j++) {
+                p3 = p2;
+                p2 = p1;
+                p1 = ((2.0*j-1.0)*z*p2-(j-1.0)*p3)/j;
+            }
+            pp = n*(z*p1-p2)/(z*z-1.0);
+            z1 = z;
+            z = z1-p1/pp;
+        } while (fabs(z-z1) > EPS);
+        x[i] = z;
+        x[n-i-1] = z;
+        w[i] = (1.0-z*z)*pp*pp;
+        w[n-i-1] = (1.0-z*z)*pp*pp;
     }
 }
 
@@ -288,11 +341,11 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
         for(unsigned int i = KORD-1, basek=0; i<KORD+L_INTERVALS-1; ++i, ++basek) {
             
             for(unsigned int j = 0; j<INT_G; ++j) {
-                rr = x[idx(basek, j, INT_G)];
+                rr = eval_xi(basek, j, x);// x[idx(basek, j, INT_G)];
                 _rr2= 1.0/(rr*rr);
                 
                 bsplvb(KORD, rr, i, Sp);
-                double wikj = w[idx(basek, j, INT_G)];
+                double wikj = eval_wi(basek, j, w); // w[idx(basek, j, INT_G)];
 
                 for(unsigned int m = (KORD-1 == i), im = i-KORD + m ; m<KORD && im<nb; ++m, ++im) {
                     double sp_m = Sp[m];
@@ -311,7 +364,7 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
 
     //double rr;
     for(unsigned int j = 0; j<INT_G; ++j) {
-        rr = x[idx(BASE_KORD, j, INT_G)];
+        rr = eval_xi(BASE_KORD, j, x); //x[idx(BASE_KORD, j, INT_G)];
         bsplvb(KORD-1, rr, KORD-1, Sp);
         for(unsigned int m = 1; m<=KORD-1; ++m) {
             for(unsigned int n = m; n<=KORD-1; ++n) {
@@ -319,7 +372,7 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
                 double  bm = bder(m, KORD-1, Sp), 
                         bn = bder(n, KORD-1, Sp);
                 
-                ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5*w[idx(BASE_KORD, j, INT_G)]*bm*bn/ME;
+                ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5* eval_wi(BASE_KORD, j, w)*bm*bn/ME;;// w[idx(BASE_KORD, j, INT_G)]*bm*bn/ME;
 
             }
         }
@@ -328,7 +381,7 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
     for(unsigned int i = KORD, basek=1; i<KORD+L_INTERVALS-1; ++i, ++basek) {
         
         for(unsigned int j = 0; j<INT_G; ++j) {
-            rr = x[idx(basek, j, INT_G)];
+            rr = eval_xi(basek, j, x);// x[idx(basek, j, INT_G)];
             bsplvb(KORD-1, rr, i, Sp);
             for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
                 for(unsigned int n = m; n<=i && n<nb; ++n) {
@@ -336,7 +389,8 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
                     double  bm = bder(m, i, Sp), 
                             bn = bder(n, i, Sp);
 
-                    ke[idx(m-1, n-1, nb)] += 0.5*w[idx(basek, 0, INT_G) + j]*bm*bn/ME;
+                    ke[idx(m-1, n-1, nb)] += 0.5*eval_wi(basek, j, w)*bm*bn/ME;
+                    //ke[idx(m-1, n-1, nb)] += 0.5*w[idx(basek, 0, INT_G) + j]*bm*bn/ME;
 
                 }
             }
@@ -439,35 +493,22 @@ int main(void) {
     fprintf(archivo, "# Valores inicial y final del pozo, LAMBDA_IN=%.12f, LAMBDA_FIN=%.12f\n", LAMBDA_IN, LAMBDA_FIN);
     fprintf(archivo, "# Numero de puntos lambda = %i\n", NUMEROS_PUNTO_LAMBDA);
 
-    // doy memoria a las matrices que voy a necesitar //
-    //k = (int *) malloc( nk*sizeof(int));
-    //t = (double *) malloc( nk*sizeof(double));
-   // x = (double *) malloc( L_INTERVALS*INT_G*sizeof(double));
-   // w = (double *) malloc( L_INTERVALS*INT_G*sizeof(double));
-    //s = (double *) malloc( nb*nb*sizeof(double));
-  //  v0 = (double *) malloc( nb*nb*sizeof(double));
-//    ke = (double *) malloc( nb*nb*sizeof(double));
-
-
-    
-    cleari(nk, k);
-    cleard(nk, t);
-    cleard(L_INTERVALS*INT_G, x);
-    cleard(L_INTERVALS*INT_G, w);
+   
+    cleard(INT_G, x);
+    cleard(INT_G, w);
     cleard(nb*nb, s);
     cleard(nb*nb, v0);
     cleard(nb*nb, ke);
 
-    t_in = omp_get_wtime();
     // primero calculos los knost y los pesos para hacer la cuadratura //
-    knots_pesos(x, w);
 
-    // calculo las matrices que necesito para resolver el problema //
+    t_in = omp_get_wtime();
+    gaulegm(x, w, INT_G);
     calculo_matrices(x, w, s, v0, ke);
     t_fin = omp_get_wtime();
 
     // armo el hamiltoniano y calculo los autovalores //
-//  hamiltoniano_autovalores(nb, s, v0, ke, archivo);
+    // hamiltoniano_autovalores(nb, s, v0, ke, archivo);
     
     t_n = (t_fin-t_in)/(nb*nb*L_INTERVALS*INT_G),
     printf("%i     %i     %i     %.12f  %.12f\n", L_INTERVALS, nk, nb, t_fin-t_in, t_n); 
@@ -480,12 +521,7 @@ int main(void) {
     
     // libero la memoria //
     fclose(archivo);
-//    free(ke);
-//    free(v0);
-//    free(s);
-//    free(w);
-//    free(x);
-//    free(t);
- //   free(k);
+
     return 0;
 }
+
