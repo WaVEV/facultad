@@ -398,13 +398,15 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
     }
 
     for(unsigned int i = 0; i<nb; ++i) {
-        for(unsigned int j = i+1; j<nb; ++j) {
+        for(unsigned int j = i+1; j<nb && j < i + KORD ; ++j) {
             s[idx(j, i, nb)] = s[idx(i, j, nb)];
             v0[idx(j, i, nb)] = v0[idx(i, j, nb)];
             ke[idx(j, i, nb)] = ke[idx(i, j, nb)];
         }
     }
+
 }
+
 
 /*
 void eigenvalues(int n, int m, double * __restrict__ a,

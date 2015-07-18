@@ -3,7 +3,7 @@ BIN			= pozo-1
 
 # Flags
 # CFLAGS			= -std=gnu99 -Wall -Wextra
-CFLAGS			= -std=gnu99 -Wall -Wextra -fopenmp  -g -O3 -pg
+CFLAGS			= -std=gnu99 -Wall -Wextra -fopenmp -O3
 LDFLAGS			= -llapack -lm 
 
 # Default Values
