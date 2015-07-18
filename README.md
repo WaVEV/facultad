@@ -67,6 +67,7 @@ Toma del pulso de mejoras:
         Con cacheo de la funcion bsplvb:    2.177257117000 segundos
         Reemplazando los arrelgos t y k:    1.811051266995 segundos
         Factorizacion de código:            1.676901567989 segundos
+        Calculo de Knot_pesos by need       0.185952243977 segundos :')
 
         
 
