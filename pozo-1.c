@@ -107,9 +107,9 @@ double x[INT_G], w[INT_G];
 
 unsigned int nb = (L_INTERVALS+2*KORD-1)-KORD-2; // tamaño de la base //
     
-double  s[((L_INTERVALS+2*KORD-1)-KORD-2)*((L_INTERVALS+2*KORD-1)-KORD-2)],
-        v0[((L_INTERVALS+2*KORD-1)-KORD-2)*((L_INTERVALS+2*KORD-1)-KORD-2)],
-        ke[((L_INTERVALS+2*KORD-1)-KORD-2)*((L_INTERVALS+2*KORD-1)-KORD-2)];
+double  s[ ((L_INTERVALS+2*KORD-1)-KORD-2+KORD) * (2 * KORD - 1)],
+        v0[((L_INTERVALS+2*KORD-1)-KORD-2+KORD) * (2 * KORD - 1)],
+        ke[((L_INTERVALS+2*KORD-1)-KORD-2+KORD) * (2 * KORD - 1)];
 
 // escribo las funciones del programa //
 int dsygvx_(int *itype, char *jobz, char *range, char * uplo, 
@@ -120,6 +120,12 @@ int dsygvx_(int *itype, char *jobz, char *range, char * uplo,
 
 
 int idx(unsigned int y, unsigned int x, unsigned int numcolumns){
+    int i=y, j=x;
+    if(abs(j-i) >= KORD) return 0;
+
+    y = KORD - (i - j) - 1;
+    x = j + abs(KORD - 1 - y);
+
     return y*numcolumns + x;
 }
 
@@ -498,9 +504,9 @@ int main(void) {
    
     cleard(INT_G, x);
     cleard(INT_G, w);
-    cleard(nb*nb, s);
-    cleard(nb*nb, v0);
-    cleard(nb*nb, ke);
+    //cleard(nb*nb, s);
+    //cleard(nb*nb, v0);
+    //cleard(nb*nb, ke);
 
     // primero calculos los knost y los pesos para hacer la cuadratura //
 

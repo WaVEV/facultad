@@ -3,14 +3,14 @@ BIN			= pozo-1
 
 # Flags
 # CFLAGS			= -std=gnu99 -Wall -Wextra
-CFLAGS			= -std=gnu99 -Wall -Wextra -fopenmp -O3
+CFLAGS			= -std=gnu99 -Wall -Wextra -fopenmp  -g
 LDFLAGS			= -llapack -lm 
 
 # Default Values
 Rmin			= 0.0
 Rmax			= 50.0f
 #l			= 2048
-l			= 510
+#l			= 510
 kord			= 5
 r1			= 5.0f
 r2			= 10.0f
