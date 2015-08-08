@@ -105,11 +105,11 @@
 const unsigned int nk = L_INTERVALS+2*KORD-1;
 double x[INT_G], w[INT_G];
 
-unsigned int nb = (L_INTERVALS+2*KORD-1)-KORD-2; // tamaño de la base //
+unsigned int nb = L_INTERVALS+KORD-3; // tamaño de la base //
     
-double  s[ ((L_INTERVALS+2*KORD-1)-KORD-2+KORD) * (2 * KORD - 1)],
-        v0[((L_INTERVALS+2*KORD-1)-KORD-2+KORD) * (2 * KORD - 1)],
-        ke[((L_INTERVALS+2*KORD-1)-KORD-2+KORD) * (2 * KORD - 1)];
+double  s[ (L_INTERVALS+2*KORD-3) * (2 * KORD - 1)],
+        v0[(L_INTERVALS+2*KORD-3) * (2 * KORD - 1)],
+        ke[(L_INTERVALS+2*KORD-3) * (2 * KORD - 1)];
 
 // escribo las funciones del programa //
 int dsygvx_(int *itype, char *jobz, char *range, char * uplo, 
@@ -169,41 +169,6 @@ double eval_wi(int i, int j, const double * w){
     return 2.0*xl / w[j];
 }
 
-void gauleg(double x1, double x2, double * __restrict__ x, double * __restrict__ w, int n) {
-/* Given the lower and upper limits of integration x1 and x2, 
- * and given n, this routine returns arrays x[1..n] and w[1..n]
- * of length n, containing the abscissas and weights of the Gauss-
- * Legendre n-point quadrature formula.
-*/
-    int m, j, i;
-    double z1, z, xm, xl, pp, p3, p2, p1;
-
-    m = (n+1)/2;
-    xm = 0.5*(x2+x1);
-    xl = 0.5*(x2-x1);
-
-    for (i = 0; i<m; i++) {
-        z = cos(M_PI*((i+1)-0.25)/(n+0.5));
-        do {
-            p1 = 1.0;
-            p2 = 0.0;
-            for (j = 1;j<=n;j++) {
-                p3 = p2;
-                p2 = p1;
-                p1 = ((2.0*j-1.0)*z*p2-(j-1.0)*p3)/j;
-            }
-            pp = n*(z*p1-p2)/(z*z-1.0);
-            z1 = z;
-            z = z1-p1/pp;
-        } while (fabs(z-z1) > EPS);
-        x[i] = xm-xl*z;
-        x[n-i-1] = xm+xl*z;
-        w[i] = 2.0*xl/((1.0-z*z)*pp*pp);
-        //w[n-i-1] = w[i];
-        w[n-i-1] = 2.0*xl/((1.0-z*z)*pp*pp);
-    }
-}
-
 void gaulegm(double * __restrict__ x, double * __restrict__ w, int n) {
 /* Given the lower and upper limits of integration x1 and x2, 
  * and given n, this routine returns arrays x[1..n] and w[1..n]
@@ -236,22 +201,6 @@ void gaulegm(double * __restrict__ x, double * __restrict__ w, int n) {
     }
 }
 
-int knots_pesos(double * __restrict__ x, double * __restrict__ w){
-
-    double dr, ri, rf;
-    double * vx, * vw;
-    dr = (R_MAX-R_MIN)/L_INTERVALS;
-    #pragma omp parallel for private(vx, vw, ri, rf)
-    for(unsigned int i = 0; i<L_INTERVALS; ++i) {
-        ri = R_MIN + i*dr;
-        rf = ri + dr;
-        vx = &x[idx(i, 0, INT_G)];
-        vw = &w[idx(i, 0, INT_G)];
-        gauleg(ri, rf, vx, vw, INT_G);
-    }
-
-    return 0;
-}
 
 double ti(int i){
     double dr = (R_MAX-R_MIN)/L_INTERVALS;
@@ -310,7 +259,7 @@ double bder(unsigned int indexm, unsigned int left, double * __restrict__ Sp) {
             }*/
         //}
 
-        if(indexm-left+KORD>=1) {
+        /*else */if(indexm-left+KORD>=1) {
             i = indexm-left+KORD;
             if(1==i) {
                 dm = (KORD-1)*(-Sp[i-1]/(ti(indexm+KORD)-ti(indexm+1)));
@@ -340,66 +289,81 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
 
     ma = 0.5*L_MAX*(L_MAX+1);
     
-    
         double rr, _rr2;
-        //double Sp[KORD];
         
         for(unsigned int i = KORD-1, basek=0; i<KORD+L_INTERVALS-1; ++i, ++basek) {
             
             for(unsigned int j = 0; j<INT_G; ++j) {
-                rr = eval_xi(basek, j, x);// x[idx(basek, j, INT_G)];
+                rr = eval_xi(basek, j, x);
                 _rr2= 1.0/(rr*rr);
                 
                 bsplvb(KORD, rr, i, Sp);
-                double wikj = eval_wi(basek, j, w); // w[idx(basek, j, INT_G)];
+                double wikj = eval_wi(basek, j, w);
+                
+                for(int k=0 ; k<KORD ; k++){
+                    for(unsigned int m = (KORD-1 == i), im = i-KORD + m,  n = (KORD-1 == i) + k, in = i-KORD + n; 
+                        m<KORD && im<nb && in<nb && n < KORD; 
+                        ++m, ++im, ++n, ++in) {
 
-                for(unsigned int m = (KORD-1 == i), im = i-KORD + m ; m<KORD && im<nb; ++m, ++im) {
-                    double sp_m = Sp[m];
-                    for(unsigned int n = (KORD-1 == i), in = i-KORD+n; n<KORD && in<nb; ++n, ++in) {
+                        s[idx(im, in, nb)] += Sp[m] * Sp[n] * wikj;
 
-                        s[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
+                        ke[idx(im, in, nb)] += ma*Sp[m] * Sp[n] * wikj * _rr2;
 
-                        ke[idx(im, in, nb)] += ma*sp_m * Sp[n] * wikj * _rr2;
-
-                        if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += sp_m * Sp[n] * wikj;
+                        if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += Sp[m] * Sp[n] * wikj;
+                    
                     }
-                }   
+                }
+                
             }
         }
+        
     
 
     //double rr;
+    
+    double bders[KORD];
     for(unsigned int j = 0; j<INT_G; ++j) {
-        rr = eval_xi(BASE_KORD, j, x); //x[idx(BASE_KORD, j, INT_G)];
+        rr = eval_xi(BASE_KORD, j, x);
         bsplvb(KORD-1, rr, KORD-1, Sp);
+        for(unsigned int m = 1; m<=KORD-1; ++m) {
+            bders[m] = bder(m, KORD-1, Sp);
+        }
         for(unsigned int m = 1; m<=KORD-1; ++m) {
             for(unsigned int n = m; n<=KORD-1; ++n) {
 
-                double  bm = bder(m, KORD-1, Sp), 
-                        bn = bder(n, KORD-1, Sp);
-                
-                ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5* eval_wi(BASE_KORD, j, w)*bm*bn/ME;;// w[idx(BASE_KORD, j, INT_G)]*bm*bn/ME;
+                double  bm = bders[m],
+                        bn = bders[n];
+
+                ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5* eval_wi(BASE_KORD, j, w)*bm*bn/ME;
 
             }
         }
     }
-
+    
     for(unsigned int i = KORD, basek=1; i<KORD+L_INTERVALS-1; ++i, ++basek) {
         
         for(unsigned int j = 0; j<INT_G; ++j) {
             rr = eval_xi(basek, j, x);// x[idx(basek, j, INT_G)];
             bsplvb(KORD-1, rr, i, Sp);
             for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
-                for(unsigned int n = m; n<=i && n<nb; ++n) {
+                bders[m - (i-KORD+1)] = bder(m, i, Sp);
+            }
 
-                    double  bm = bder(m, i, Sp), 
-                            bn = bder(n, i, Sp);
-
+            for(int k=0 ; k<KORD ; k++){
+                for(unsigned int m = i-KORD+1, n = m + k; m<=i && m<nb && n<=i && n<nb ; ++m, ++n) {
+                    double  bm = bders[m - (i-KORD+1)];
+                    double bn = bders[n - (i-KORD+1)];
                     ke[idx(m-1, n-1, nb)] += 0.5*eval_wi(basek, j, w)*bm*bn/ME;
-                    //ke[idx(m-1, n-1, nb)] += 0.5*w[idx(basek, 0, INT_G) + j]*bm*bn/ME;
-
                 }
             }
+            /*for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
+                double  bm = bders[m - (i-KORD+1)];
+                for(unsigned int n = m; n<=i && n<nb; ++n) {
+
+                    double bn = bders[n - (i-KORD+1)];
+                    ke[idx(m-1, n-1, nb)] += 0.5*eval_wi(basek, j, w)*bm*bn/ME;
+                }
+            }*/
         }
     }
 
@@ -504,9 +468,9 @@ int main(void) {
    
     cleard(INT_G, x);
     cleard(INT_G, w);
-    //cleard(nb*nb, s);
-    //cleard(nb*nb, v0);
-    //cleard(nb*nb, ke);
+    cleard(nb * (2 * KORD - 1), s);
+    cleard(nb * (2 * KORD - 1), v0);
+    cleard(nb * (2 * KORD - 1), ke);
 
     // primero calculos los knost y los pesos para hacer la cuadratura //
 
@@ -532,4 +496,5 @@ int main(void) {
 
     return 0;
 }
+
 
