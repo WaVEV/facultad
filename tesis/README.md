@@ -43,16 +43,16 @@ Aca iré escribiendo lo que hago día a día
         1) Hacer el blocke omp con una slide window
 
 07/08/2015
-	Tareas hechas:
-		1) Se redujo la cantidad de memoria (de O(n²) aprox a O(n * kord) aprox) (donde kord es menos de 10 y mas 1)
-		2) Se acomodo los ciclos para tener mas cache hit, por la nueva reestructuracion de la memoria
-		3) Se cambio los ciclos para que solamente se calcule la parse superior de la matriz, luego se refleja
+    Tareas hechas:
+        1) Se redujo la cantidad de memoria (de O(n²) aprox a O(n * kord) aprox) (donde kord es menos de 10 y mas 1)
+        2) Se acomodo los ciclos para tener mas cache hit, por la nueva reestructuracion de la memoria
+        3) Se cambio los ciclos para que solamente se calcule la parse superior de la matriz, luego se refleja
 
-	Problemas:
-		--
+    Problemas:
+        --
 
-	Tareas para la próxima
-		--
+    Tareas para la próxima
+        --
 
 Toma del pulso de mejoras:
     Compilando con el flag de optimizacion O3 y en "mini", con los siguientes parametros:
