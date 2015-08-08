@@ -42,6 +42,18 @@ Aca iré escribiendo lo que hago día a día
     Tareas para la próxima
         1) Hacer el blocke omp con una slide window
 
+07/08/2015
+	Tareas hechas:
+		1) Se redujo la cantidad de memoria (de O(n²) aprox a O(n * kord) aprox) (donde kord es menos de 10 y mas 1)
+		2) Se acomodo los ciclos para tener mas cache hit, por la nueva reestructuracion de la memoria
+		3) Se cambio los ciclos para que solamente se calcule la parse superior de la matriz, luego se refleja
+
+	Problemas:
+		--
+
+	Tareas para la próxima
+		--
+
 Toma del pulso de mejoras:
     Compilando con el flag de optimizacion O3 y en "mini", con los siguientes parametros:
 
@@ -67,7 +79,10 @@ Toma del pulso de mejoras:
         Con cacheo de la funcion bsplvb:    2.177257117000 segundos
         Reemplazando los arrelgos t y k:    1.811051266995 segundos
         Factorizacion de código:            1.676901567989 segundos
-        Calculo de Knot_pesos by need       0.185952243977 segundos :')
+        Calculo de Knot_pesos by need       0.185952243977 segundos 
+		Mejora de memoria, y calculo de     0.097898888867 segundos :')
+		la parte superior de la matriz
+		solamente
 
         
 
