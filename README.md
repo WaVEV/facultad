@@ -80,9 +80,10 @@ Aca iré escribiendo lo que hago día a día
             Reemplazando los arrelgos t y k:    1.811051266995 segundos
             Factorizacion de código:            1.676901567989 segundos
             Calculo de Knot_pesos by need       0.185952243977 segundos 
-		    Mejora de memoria, y calculo de     0.097898888867 segundos :')
+			Mejora de memoria, y calculo de     0.097898888867 segundos :')
 		    la parte superior de la matriz
 		    solamente
+			Eliminado checkeo redundantes		0.078862830997 segundos
 
             
 
