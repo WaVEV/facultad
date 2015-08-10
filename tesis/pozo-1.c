@@ -105,7 +105,7 @@
 const unsigned int nk = L_INTERVALS+2*KORD-1;
 double x[INT_G], w[INT_G];
 
-unsigned int nb = L_INTERVALS+KORD-3; // tamaño de la base //
+const unsigned int nb = L_INTERVALS+KORD-3; // tamaño de la base //
     
 double  s[ (L_INTERVALS+2*KORD-3) * (2 * KORD - 1)],
         v0[(L_INTERVALS+2*KORD-3) * (2 * KORD - 1)],
@@ -119,17 +119,19 @@ int dsygvx_(int *itype, char *jobz, char *range, char * uplo,
     int *lwork, int *iwork, int *ifail, int *info);
 
 
-int idx(unsigned int y, unsigned int x, unsigned int numcolumns){
-    int i=y, j=x;
-    if(abs(j-i) >= KORD) return 0;
 
-    y = KORD - (i - j) - 1;
-    x = j + abs(KORD - 1 - y);
+int idx(const unsigned int y, const unsigned int x, const unsigned int numcolumns){
+    
+    if(abs(x - y) >= KORD) return 0;
+    const int mskabs = -1 >> 1;
+    int i, j;
+    i = KORD - (y - x) - 1;
+    j = x + (mskabs & (KORD - 1 - i));
 
-    return y*numcolumns + x;
+    return i*numcolumns + j;
 }
 
-int cleari(unsigned int N, int * __restrict__ vec) {
+int cleari(const unsigned int N, int * __restrict__ vec) {
     
     for(unsigned int i = 0; i<N; ++i) 
         vec[i] = 0;
@@ -137,7 +139,7 @@ int cleari(unsigned int N, int * __restrict__ vec) {
     return 0;
 }
 
-int cleard(unsigned int N, double * __restrict__ vec) {
+int cleard(const unsigned int N, double * __restrict__ vec) {
     memset(vec, 0, sizeof(double) * N);
     //for(unsigned int i = 0; i<N; ++i)
     //    vec[i] = 0.f;
@@ -145,7 +147,7 @@ int cleard(unsigned int N, double * __restrict__ vec) {
     return 0;
 }
 
-void setxparameters(int i, double *xm, double *xl){
+void setxparameters(const int i, double *xm, double *xl){
     double dr = (R_MAX-R_MIN)/L_INTERVALS;
     double x1 = R_MIN + i * dr, 
            x2 = x1 + dr;
@@ -153,7 +155,7 @@ void setxparameters(int i, double *xm, double *xl){
     *xl = 0.5*(x2 - x1);
 }
 
-double eval_xi(int i, int j, const double * x){
+double eval_xi(const int i, const int j, const double * x){
     double xm, xl;
     setxparameters(i, &xm, &xl);
     if(j >= (INT_G + 1) / 2){
@@ -163,7 +165,7 @@ double eval_xi(int i, int j, const double * x){
     }
 }
 
-double eval_wi(int i, int j, const double * w){
+double eval_wi(const int i, const int j, const double * w){
     double xm, xl;
     setxparameters(i, &xm, &xl);
     return 2.0*xl / w[j];
@@ -289,20 +291,19 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
 
     ma = 0.5*L_MAX*(L_MAX+1);
     
-        double rr, _rr2;
-        
-        for(unsigned int i = KORD-1, basek=0; i<KORD+L_INTERVALS-1; ++i, ++basek) {
-            
+    double rr, _rr2;
+        for(unsigned int i = KORD-1, basek=0; i<(KORD+L_INTERVALS-1); ++i, ++basek) {
+
             for(unsigned int j = 0; j<INT_G; ++j) {
                 rr = eval_xi(basek, j, x);
                 _rr2= 1.0/(rr*rr);
-                
+
                 bsplvb(KORD, rr, i, Sp);
                 double wikj = eval_wi(basek, j, w);
-                
+
                 for(int k=0 ; k<KORD ; k++){
                     for(unsigned int m = (KORD-1 == i), im = i-KORD + m,  n = (KORD-1 == i) + k, in = i-KORD + n; 
-                        m<KORD && im<nb && in<nb && n < KORD; 
+                        in<nb && n < KORD;
                         ++m, ++im, ++n, ++in) {
 
                         s[idx(im, in, nb)] += Sp[m] * Sp[n] * wikj;
@@ -310,60 +311,49 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
                         ke[idx(im, in, nb)] += ma*Sp[m] * Sp[n] * wikj * _rr2;
 
                         if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += Sp[m] * Sp[n] * wikj;
-                    
                     }
                 }
-                
             }
         }
-        
-    
 
-    //double rr;
-    
+
     double bders[KORD];
     for(unsigned int j = 0; j<INT_G; ++j) {
         rr = eval_xi(BASE_KORD, j, x);
+
         bsplvb(KORD-1, rr, KORD-1, Sp);
+
         for(unsigned int m = 1; m<=KORD-1; ++m) {
             bders[m] = bder(m, KORD-1, Sp);
         }
+
         for(unsigned int m = 1; m<=KORD-1; ++m) {
             for(unsigned int n = m; n<=KORD-1; ++n) {
 
                 double  bm = bders[m],
                         bn = bders[n];
 
-                ke[idx(m-1, n-1, nb)] = ke[idx(m-1, n-1, nb)] + 0.5* eval_wi(BASE_KORD, j, w)*bm*bn/ME;
-
+                ke[idx(m-1, n-1, nb)] += 0.5* eval_wi(BASE_KORD, j, w)*bm*bn/ME;
             }
         }
     }
-    
+
     for(unsigned int i = KORD, basek=1; i<KORD+L_INTERVALS-1; ++i, ++basek) {
-        
+
         for(unsigned int j = 0; j<INT_G; ++j) {
-            rr = eval_xi(basek, j, x);// x[idx(basek, j, INT_G)];
+            rr = eval_xi(basek, j, x);
             bsplvb(KORD-1, rr, i, Sp);
             for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
                 bders[m - (i-KORD+1)] = bder(m, i, Sp);
             }
 
             for(int k=0 ; k<KORD ; k++){
-                for(unsigned int m = i-KORD+1, n = m + k; m<=i && m<nb && n<=i && n<nb ; ++m, ++n) {
+                for(unsigned int m = i-KORD+1, n = m + k; n<=i && n<nb ; ++m, ++n) {
                     double  bm = bders[m - (i-KORD+1)];
                     double bn = bders[n - (i-KORD+1)];
                     ke[idx(m-1, n-1, nb)] += 0.5*eval_wi(basek, j, w)*bm*bn/ME;
                 }
             }
-            /*for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
-                double  bm = bders[m - (i-KORD+1)];
-                for(unsigned int n = m; n<=i && n<nb; ++n) {
-
-                    double bn = bders[n - (i-KORD+1)];
-                    ke[idx(m-1, n-1, nb)] += 0.5*eval_wi(basek, j, w)*bm*bn/ME;
-                }
-            }*/
         }
     }
 
@@ -374,7 +364,6 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
             ke[idx(j, i, nb)] = ke[idx(i, j, nb)];
         }
     }
-
 }
 
 
@@ -496,5 +485,6 @@ int main(void) {
 
     return 0;
 }
+
 
 
