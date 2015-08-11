@@ -105,11 +105,11 @@
 const unsigned int nk = L_INTERVALS+2*KORD-1;
 double x[INT_G], w[INT_G];
 
-const unsigned int nb = L_INTERVALS+KORD-3; // tamaño de la base //
+const unsigned int nb = L_INTERVALS + KORD-3; // tamaño de la base //
     
-double  s[ (L_INTERVALS+2*KORD-3) * (2 * KORD - 1)],
-        v0[(L_INTERVALS+2*KORD-3) * (2 * KORD - 1)],
-        ke[(L_INTERVALS+2*KORD-3) * (2 * KORD - 1)];
+double  s[ (L_INTERVALS+2*KORD-3) * (KORD)],
+        v0[(L_INTERVALS+2*KORD-3) * (KORD)],
+        ke[(L_INTERVALS+2*KORD-3) * (KORD)];
 
 // escribo las funciones del programa //
 int dsygvx_(int *itype, char *jobz, char *range, char * uplo, 
@@ -119,15 +119,17 @@ int dsygvx_(int *itype, char *jobz, char *range, char * uplo,
     int *lwork, int *iwork, int *ifail, int *info);
 
 
+#define min(x,y) ((x) < (y) ? (x) : (y))
+#define max(x,y) ((x) > (y) ? (x) : (y))
 
 int idx(const unsigned int y, const unsigned int x, const unsigned int numcolumns){
-    
-    if(abs(x - y) >= KORD) return 0;
-    const int mskabs = -1 >> 1;
     int i, j;
-    i = KORD - (y - x) - 1;
-    j = x + (mskabs & (KORD - 1 - i));
+    j = max(x,y);
+    i = min(x,y);
+    if(j - i >= KORD) return 0;
+    i = KORD - (j - i) - 1;
 
+    assert((L_INTERVALS+2*KORD-3) * (KORD) > i*numcolumns + j);
     return i*numcolumns + j;
 }
 
@@ -210,8 +212,7 @@ double ti(int i){
     return R_MIN + (KORD - 1 < i) * dr * (pos - (pos - L_INTERVALS) * (KORD + L_INTERVALS - 1 < i));
 }
 
-
-int bsplvb(unsigned int jhigh, double rr, int left, double * __restrict__ biatx) {
+int bsplvb(unsigned int jhigh, double rr, int left, double * __restrict__ biatx, double * __restrict__ biatx_1) {
   
     unsigned int j;
     double saved, term;
@@ -223,7 +224,8 @@ int bsplvb(unsigned int jhigh, double rr, int left, double * __restrict__ biatx)
     biatx[0] = 1.0;
 
 
-    for(j=0; j<jhigh-1; ++j) {
+    for(j=0; j<jhigh-2; ++j) {
+            
         deltar[j] = ti(left+j+1) - rr;
         deltal[j] = rr-ti(left-j);
 
@@ -233,9 +235,21 @@ int bsplvb(unsigned int jhigh, double rr, int left, double * __restrict__ biatx)
             biatx[i] = saved + deltar[i]*term;
             saved = deltal[j-i]*term;
         }
-
         biatx[j+1] = saved;
+
     }
+    memcpy(biatx_1, biatx, sizeof(double) * KORD);
+
+    deltar[j] = ti(left+j+1) - rr;
+    deltal[j] = rr-ti(left-j);
+
+    saved = 0.0;
+    for(unsigned int i = 0; i<j+1; ++i) {
+        term = biatx[i]/(deltar[i]+deltal[j-i]);
+        biatx[i] = saved + deltar[i]*term;
+        saved = deltal[j-i]*term;
+    }
+    biatx[j+1] = saved;
 
     return 0; 
 }
@@ -288,43 +302,59 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
 
     double ma;
     double Sp[KORD];
+    double Sp_1[KORD];
 
     ma = 0.5*L_MAX*(L_MAX+1);
     
     double rr, _rr2;
-        for(unsigned int i = KORD-1, basek=0; i<(KORD+L_INTERVALS-1); ++i, ++basek) {
+    
 
-            for(unsigned int j = 0; j<INT_G; ++j) {
-                rr = eval_xi(basek, j, x);
-                _rr2= 1.0/(rr*rr);
+    double bders[KORD];
+    for(unsigned int basek=1; basek<L_INTERVALS; ++basek) {
+        unsigned int i = basek - 1 + KORD;
+        for(unsigned int j = 0; j<INT_G; ++j) {
+            rr = eval_xi(basek, j, x);
+            _rr2= 1.0/(rr*rr);
 
-                bsplvb(KORD, rr, i, Sp);
-                double wikj = eval_wi(basek, j, w);
+            bsplvb(KORD, rr, i, Sp, Sp_1);
 
-                for(int k=0 ; k<KORD ; k++){
-                    for(unsigned int m = (KORD-1 == i), im = i-KORD + m,  n = (KORD-1 == i) + k, in = i-KORD + n; 
-                        in<nb && n < KORD;
-                        ++m, ++im, ++n, ++in) {
+            for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
+                bders[m - (i-KORD+1)] = bder(m, i, Sp_1);
+            }
 
-                        s[idx(im, in, nb)] += Sp[m] * Sp[n] * wikj;
+            for(int k=0 ; k<KORD ; k++){
+                for(unsigned int m = i-KORD+1, n = m + k; n<=i && n<nb ; ++m, ++n) {
+                    double  bm = bders[m - (i-KORD+1)];
+                    double bn = bders[n - (i-KORD+1)];
+                    ke[idx(m-1, n-1, nb)] += 0.5*eval_wi(basek, j, w)*bm*bn/ME;
+                }
+            }
 
-                        ke[idx(im, in, nb)] += ma*Sp[m] * Sp[n] * wikj * _rr2;
+            double wikj = eval_wi(basek, j, w);
 
-                        if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += Sp[m] * Sp[n] * wikj;
-                    }
+            for(int k=0 ; k<KORD ; k++){
+                for(unsigned int m = 0, im = i-KORD, n = k, in = i-KORD + k; 
+                    in<nb && n < KORD;
+                    ++m, ++im, ++n, ++in) {
+                    
+                    s[idx(im, in, nb)] += Sp[m] * Sp[n] * wikj;
+
+                    ke[idx(im, in, nb)] += ma*Sp[m] * Sp[n] * wikj * _rr2;
+
+                    if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += Sp[m] * Sp[n] * wikj;
                 }
             }
         }
+    }
 
-
-    double bders[KORD];
     for(unsigned int j = 0; j<INT_G; ++j) {
         rr = eval_xi(BASE_KORD, j, x);
+        _rr2= 1.0/(rr*rr);
 
-        bsplvb(KORD-1, rr, KORD-1, Sp);
+        bsplvb(KORD, rr, KORD-1, Sp, Sp_1);
 
         for(unsigned int m = 1; m<=KORD-1; ++m) {
-            bders[m] = bder(m, KORD-1, Sp);
+            bders[m] = bder(m, KORD-1, Sp_1);
         }
 
         for(unsigned int m = 1; m<=KORD-1; ++m) {
@@ -336,32 +366,20 @@ void calculo_matrices(const double * __restrict__ const x, const double * __rest
                 ke[idx(m-1, n-1, nb)] += 0.5* eval_wi(BASE_KORD, j, w)*bm*bn/ME;
             }
         }
-    }
 
-    for(unsigned int i = KORD, basek=1; i<KORD+L_INTERVALS-1; ++i, ++basek) {
+        double wikj = eval_wi(0, j, w);
 
-        for(unsigned int j = 0; j<INT_G; ++j) {
-            rr = eval_xi(basek, j, x);
-            bsplvb(KORD-1, rr, i, Sp);
-            for(unsigned int m = i-KORD+1; m<=i && m<nb ; ++m) {
-                bders[m - (i-KORD+1)] = bder(m, i, Sp);
+        for(int k=0 ; k<KORD ; k++){
+            for(unsigned int m = 1, im = 0,  n = 1 + k, in = k; 
+                n < KORD && in<nb ;
+                ++m, ++im, ++n, ++in) {
+
+                s[idx(im, in, nb)] += Sp[m] * Sp[n] * wikj;
+
+                ke[idx(im, in, nb)] += ma*Sp[m] * Sp[n] * wikj * _rr2;
+
+                if(RADIO_1<rr && rr<RADIO_2) v0[idx(im, in, nb)] += Sp[m] * Sp[n] * wikj;
             }
-
-            for(int k=0 ; k<KORD ; k++){
-                for(unsigned int m = i-KORD+1, n = m + k; n<=i && n<nb ; ++m, ++n) {
-                    double  bm = bders[m - (i-KORD+1)];
-                    double bn = bders[n - (i-KORD+1)];
-                    ke[idx(m-1, n-1, nb)] += 0.5*eval_wi(basek, j, w)*bm*bn/ME;
-                }
-            }
-        }
-    }
-
-    for(unsigned int i = 0; i<nb; ++i) {
-        for(unsigned int j = i+1; j<nb && j < i + KORD ; ++j) {
-            s[idx(j, i, nb)] = s[idx(i, j, nb)];
-            v0[idx(j, i, nb)] = v0[idx(i, j, nb)];
-            ke[idx(j, i, nb)] = ke[idx(i, j, nb)];
         }
     }
 }
@@ -457,9 +475,9 @@ int main(void) {
    
     cleard(INT_G, x);
     cleard(INT_G, w);
-    cleard(nb * (2 * KORD - 1), s);
+  /*  cleard(nb * (2 * KORD - 1), s);
     cleard(nb * (2 * KORD - 1), v0);
-    cleard(nb * (2 * KORD - 1), ke);
+    cleard(nb * (2 * KORD - 1), ke);*/
 
     // primero calculos los knost y los pesos para hacer la cuadratura //
 
@@ -479,7 +497,7 @@ int main(void) {
         for(unsigned int j=0; j<nb; ++j)
             fprintf(file, "%i\t%i\t%.12f\t%.12f\t%.12f\n", i, j, s[idx(i,j,nb)], v0[idx(i,j,nb)], ke[idx(i,j,nb)]);
     fclose(file);
-    
+
     // libero la memoria //
     fclose(archivo);
 
