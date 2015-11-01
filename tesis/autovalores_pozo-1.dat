@@ -1,0 +1,12 @@
+# Rmin=0.000000000000 y R_MAX=50.000000000000
+# Numero de intervalos l=510
+# Orden los B-splines kord=5
+# Radios del pozo RADIO_1=5.000000000000 y RADIO_2=10.000000000000
+# Masa de la particula me=1.000000000000
+# Grado de integracion de la cuadratura INT_G=500
+# Numero de autovalores NEV=15
+# Momento angular que usamos L_MAX=0
+# Numero de knots nk=519
+# Tamaño de la base nb=512
+# Valores inicial y final del pozo, LAMBDA_IN=0.000000000000, LAMBDA_FIN=20.000000000000
+# Numero de puntos lambda = 200

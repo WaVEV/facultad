@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 Aca iré escribiendo lo que hago día a día
 
     23/06/2015
@@ -95,10 +94,3 @@ Aca iré escribiendo lo que hago día a día
 
     PD: le pasaré un corrector, estoy haciendo esto mas para mi que para presentar, y tambien se que
     que le sirve al lector.
-=======
-facultad
-========
-
-son los trabajos mios, que siempre me los mando por mail
-solo eso
->>>>>>> 14c6692a77c5eaf60559e00a964b970efdad318a
