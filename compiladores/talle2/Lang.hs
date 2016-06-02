@@ -7,23 +7,23 @@ type Iden = String
 
 -- | Expresiones enteras 
 data IntExpr = Const Int
-			 | Var Iden
-			 | Neg IntExpr
-		 | IBin OpInt IntExpr IntExpr
-		 | Pri ParExp
-		 | Seg ParExp
+             | Var Iden
+             | Neg IntExpr
+         | IBin OpInt IntExpr IntExpr
+         | Fst ParExp
+         | Snd ParExp
 
-			 
+             
 isBasic (Const _) = True
 isBasic (Var _) = True
 isBasic _ = False
 
 instance Show IntExpr where
-	show (Const c) = show c
-	show (Var s) = s
-	show (Neg e) = '-':(if isBasic e then show e else "...")
-	show (IBin o e1 e2) = if isBasic e1 && isBasic e2 then (show e1) ++ (show o) ++ (show e2)
-								  else "..." ++ (show o) ++ "..."
+    show (Const c) = show c
+    show (Var s) = s
+    show (Neg e) = '-':(if isBasic e then show e else "...")
+    show (IBin o e1 e2) = if isBasic e1 && isBasic e2 then (show e1) ++ (show o) ++ (show e2)
+                                  else "..." ++ (show o) ++ "..."
 
 infixr 6 .+
 infixr 6 .- 
@@ -48,44 +48,45 @@ c = Const
 
 -- | Los nombres de variables son strings, pero quizás 
 -- querramos cambiarlo luego.
+
 type PVName = String
--- | Pares de enteros
-data ParExp = Par IntExp IntExp | PVar PVName
+data ParExp = Par IntExpr IntExpr | PVar PVName
 
 instance Show ParExp where
-	show Par ie1 ie2 = (show ie1) ++ (show ie2) --| ie no es internet explorer
-	show PVar v = v
+    show (Par ie1 ie2) = (show ie1) ++ (show ie2)
+    show (PVar v) = v
 
 -- | Operadores binarios enteros, `Div` corresponde al cociente.
 data OpInt = Plus | Minus | Times | Div | Mod
-		   
+           
 instance Show OpInt where
-	show Plus = "+"
-	show Minus = "-"
-	show Times = "*"
-	show Div = "/"
-	show Mod = "mod" 
+    show Plus = "+"
+    show Minus = "-"
+    show Times = "*"
+    show Div = "/"
+    show Mod = "mod" 
 
 -- | Expresiones booleanas
 data Assert = CTrue
-			| CFalse
-			| Not Assert
-			| ABin OpBool Assert Assert
-			| IntAss OpRel IntExpr IntExpr
+            | CFalse
+            | Not Assert
+            | ABin OpBool Assert Assert
+            | IntAss OpRel IntExpr IntExpr
+            | ParAss OpRel ParExp ParExp
 
 isBasicAss CTrue = True
 isBasicAss CFalse = True
 isBasicAss _ = False
 
 instance Show Assert where
-	show CTrue = "true"
-	show CFalse = "false"
-	show (Not e) = '~':(if isBasicAss e then show e else "...")
-	show (ABin o e1 e2) = if isBasicAss e1 && isBasicAss e2 then (show e1) ++ (show o) ++ (show e2)
-										else "..." ++ (show o) ++ "..."
-	show (IntAss o e1 e2) = if isBasic e1 && isBasic e2 
-		then (show e1) ++ (show o) ++ (show e2)
-		else "..." ++ (show o) ++ "..."
+    show CTrue = "true"
+    show CFalse = "false"
+    show (Not e) = '~':(if isBasicAss e then show e else "...")
+    show (ABin o e1 e2) = if isBasicAss e1 && isBasicAss e2 then (show e1) ++ (show o) ++ (show e2)
+                                        else "..." ++ (show o) ++ "..."
+    show (IntAss o e1 e2) = if isBasic e1 && isBasic e2 
+        then (show e1) ++ (show o) ++ (show e2)
+        else "..." ++ (show o) ++ "..."
 
 infixr 8 .&&
 infixr 7 .||
@@ -109,43 +110,42 @@ false = CFalse
 data OpRel = Eq | NEq | Lt 
 
 instance Show OpRel where
-	show Eq = "=="
-	show NEq = "!="
-	show Lt = "<"          
+    show Eq = "=="
+    show NEq = "!="
+    show Lt = "<"          
 
 -- | Operadores binarios booleanos 
 data OpBool = And | Or
 
 instance Show OpBool where
-	show And = "/\\"
-	show Or = "\\/"
+    show And = "/\\"
+    show Or = "\\/"
 
 data Comm = Skip 
-	  | Morite --corresponde a abort
-		  | Assign Iden IntExpr -- v := e
-		  | Assign PVName IntExpr IntExpr -- v := e1, e2
-		  | If Assert Comm Comm -- if b then c else c'
-		  | Seq Comm Comm -- c;c'
-		  | While Assert Comm -- while b do c
-	  | Newvar Iden IntExpr Comm -- newvar v in c
-	  | Newvar PVName IntExpr IntExpr Comm -- newpvar v in c
-	  | Dame Iden -- ?x
-	  | Toma IntExpr -- !x
-	  | Toma ParExp -- !x
-	  | Agarrame Comm Comm --catch c in c'
-			
+    | Morite --corresponde a abort
+    | Assign Iden IntExpr -- v := e
+    | Assignp PVName IntExpr IntExpr -- v := e1, e2
+    | If Assert Comm Comm -- if b then c else c'
+    | Seq Comm Comm -- c;c'
+    | While Assert Comm -- while b do c
+    | Newvar Iden IntExpr Comm -- newvar v in c
+    | Newpvar PVName IntExpr IntExpr Comm -- newpvar v in c
+    | Dame Iden -- ?x
+    | Toma IntExpr -- !x
+    | Agarrame Comm Comm --catch c in c'
+            
 instance Show Comm where
-	show Skip = "skip"
-	show Morite = "abort"
-	show (Assign v e) = v ++ ":=" ++ (show e)
-	show (If b c1 c2) = "if "++ (show b) ++ "\nthen{\n" ++ (show c1) ++ "}\nelse{" ++ (show c2) ++ "}" 
-	show (Seq c1 c2) = (show c1) ++ ";\n" ++ (show c2)
-	show (While b c) = "while "++ (show b) ++ "do\n" ++ (show c) ++ "\nod"
-	show (Newvar v e c) = "newvar " ++ v ++ " =" ++ (show e) ++ " in{\n" ++ (show c) ++ "}"
-	show (Newvar v e1 e2 c) = "newvar " ++ v ++ " = (" ++ (show e1) ++ ", " ++ (show e2) ++ ") in{\n" ++ (show c) ++ "}"
-	show (Dame v) = '?':v
-	show (Toma v) = '!': show v
-	show (Agarrame c1 c2) = "catch {\n" ++ (show c1) ++ "}\n in{\n" ++ (show c2) ++ "}"
+    show Skip = "skip"
+    show Morite = "abort"
+    show (Assign v e) = v ++ ":=" ++ (show e)
+    show (If b c1 c2) = "if "++ (show b) ++ "\nthen{\n" ++ (show c1) ++ "}\nelse{" ++ (show c2) ++ "}" 
+    show (Seq c1 c2) = (show c1) ++ ";\n" ++ (show c2)
+    show (While b c) = "while "++ (show b) ++ "do\n" ++ (show c) ++ "\nod"
+    show (Newvar v e c) = "newvar " ++ v ++ " =" ++ (show e) ++ " in{\n" ++ (show c) ++ "}"
+    show (Newpvar v e1 e2 c) = "newpvar " ++ v ++ " = (" ++ (show e1) ++ ", " ++ (show e2) ++ ") in{\n" ++ (show c) ++ "}"
+    show (Dame v) = '?':v
+    show (Toma v) = '!': show v
+    show (Agarrame c1 c2) = "catch {\n" ++ (show c1) ++ "}\n in{\n" ++ (show c2) ++ "}"
 
 
 infix 3 .:=

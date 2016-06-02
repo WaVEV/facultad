@@ -23,16 +23,19 @@ data Omega = Term State
 -- mónada de IO.
 
 -- | Evaluación de Pares
-evalPar :: ParExp -> State -> Bool
+
+-- iota1_TupleInt
+-- iota2_TupleInt
+evalPar :: ParExp -> State -> DosInt
 evalPar e st = case e of
-                    (Par e1 e2) -> Tuple (evalInt e1) (evalInt e2)
-                    (PVar v) -> get st v
+                    (Par e1 e2) -> intToDosInt (evalInt e1 st) (evalInt e2 st)
+                    (PVar v) -> iota2_TupleInt $ get st v
 
 -- | La evaluación de expresiones enteras serán enteros.
 evalInt :: IntExpr -> State -> Int
 evalInt e st = case e of 
                 (Const a) -> a
-                (Var a) -> get st a
+                (Var a) -> iota1_TupleInt $ get st a
                 (Neg a) -> - evalInt a st
                 (IBin op a b) -> f (evalInt a st) (evalInt b st)
                     where f = case op of
@@ -41,10 +44,10 @@ evalInt e st = case e of
                                     Times -> (\x y -> x * y)
                                     Div -> (\x y -> x `div` y)
                                     Mod -> (\x y -> x `mod` y)
-                (Pri pe) -> e1
-                    where Tuple e1 e2 = evalPar pe
-                (Seg pe) -> e2
-                    where Tuple e1 e2 = evalPar pe
+                (Fst pe) -> e1
+                    where e1 = primero $ evalPar pe st
+                (Snd pe) -> e2
+                    where e2 = segundo $ evalPar pe st
 
 
 -- | Evaluación de expresiones booleanas en bool.
@@ -62,6 +65,11 @@ evalBool e st = case e of
                                         Eq -> \ x y -> x == y
                                         NEq -> \ x y -> x /= y
                                         Lt -> \ x y -> x < y
+                    (ParAss op p0 p1) -> f (evalPar p0 st) (evalPar p1 st)
+                            where f = case op of
+                                        Eq -> \ x y -> primero x == primero y && segundo x == segundo y
+                                        NEq -> \ x y -> primero x /= primero y || segundo x /= segundo y
+                                        Lt -> \ x y -> primero x < primero y && segundo x < segundo y
 
 
 -- | La evaluación de un comando es un elemento de Ω; el único
@@ -74,29 +82,27 @@ eval (While b c) st = fix fwhile st
                        | otherwise =  Term st'
 eval c st = case c of
                 Skip -> Term st
-                (Assign var e) -> Term (set st var value) 
+
+                (Assign var e) -> Term (set st var $ iota_int value) 
                     where value = evalInt e st
+
                 (If b c0 c1) | evalBool b st -> eval c0 st
                              | otherwise -> eval c1 st
+
                 (Seq c0 c1) -> star (eval c1) (eval c0 st)
+
                 (Newvar var e c) -> (dagger (\o -> set o var (get st var))) (eval c st')
-                    where st' = set st var (evalInt e st)
-                (Newvar var e1 e2 c) -> (dagger (\o -> set o var(get st var))) (eval c st')
-                    where st' = set st var (Tuple (evalInt e1 st) (evalInt e2 st))
+                    where st' = set st var (iota_int (evalInt e st))
+                (Newpvar var e1 e2 c) -> (dagger (\o -> set o var(get st var))) (eval c st')
+                    where st' = set st var (iota_tuple (intToDosInt (evalInt e1 st) (evalInt e2 st)))
                 Morite -> Abort st
                 (Agarrame c0 c1) -> pluss (eval c1) (eval c0 st)
-
-                (Toma (Par e1 e2)) -> Out n1 (Out n2 (Term st))
-                    where Tuple n1 n2 = evalPar (Par e1 e2)
-                (Toma (PVar var)) -> Out n1 (Out n2 (Term st))
-                    where Tuple n1 n2 = evalPar (Par e1 e2)
 
                 (Toma e) -> Out n (Term st)
                     where n = evalInt e st
 
-                (Dame var) -> In var (\n -> Term (set st var n) )
-                (DamePar var) -> In var (\ n1 n2 -> Term(set st var (Tuple n1 n2)))
-                (Assign var e1 e2) -> Term(set st var (Tuple e1 e2))
+                (Dame var) -> In var (\n -> Term (set st var $ iota_int n) )
+                (Assignp var e1 e2) -> Term (set st var $ iota_tuple (intToDosInt  (evalInt e1 st) (evalInt e2 st) ))
 
 
 
